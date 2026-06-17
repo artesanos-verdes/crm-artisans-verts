@@ -425,6 +425,12 @@ html{scroll-behavior:smooth}
 .doss-table td{padding:11px 14px}
 .doss-table .dmuted{color:var(--ink-soft);font-weight:400;font-size:13px}
 .doss-table tbody tr{cursor:pointer}
+.doss-table th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+.doss-table th.sortable:hover{color:var(--brand)}
+.doss-table .sortar{font-size:9px;color:var(--brand)}
+.doss-table tbody tr:nth-child(even){background:var(--surface-2)}
+.doss-table tbody tr:hover{background:var(--brand-tint)}
+.doss-table tbody tr:hover .dmuted{color:var(--brand-2)}
 </style>
 
 <header>
@@ -1117,6 +1123,8 @@ function dossierCard(d){
   </div>`;
 }
 let dossQuery='';
+let dossSort='charges', dossDir=-1;   // tri du tableau dossiers
+function setDossSort(key){ if(dossSort===key) dossDir*=-1; else { dossSort=key; dossDir=(key==='nom'?1:-1); } renderDossiers(); }
 function renderDossiers(){
   const el = document.getElementById('view-dossiers');
   if(!state.dossiers.length){
@@ -1129,6 +1137,7 @@ function renderDossiers(){
   const smap={}; state.dossiers.forEach(d=>smap[d.id]=dossierStats(d.id));   // stats calculées une fois
   const q=dossQuery.trim().toLowerCase();
   const match=d=> !q || (d.nom||'').toLowerCase().includes(q) || (d.client||'').toLowerCase().includes(q);
+  const sar=k=>dossSort===k?` <span class="sortar">${dossDir>0?'▲':'▼'}</span>`:'';
   const zonesPresent=[...new Set(state.dossiers.map(d=>d.zone||'Autres'))];
   const ordered = ZORDER.filter(z=>zonesPresent.includes(z)).concat(zonesPresent.filter(z=>!ZORDER.includes(z)).sort());
   const chip=(z,lbl,ic,n)=>`<button class="zchip ${dossZone===z?'active':''}" onclick="setDossZone('${z}')">${ic} ${lbl}${n!=null?` <span class="zc-n">${n}</span>`:''}</button>`;
@@ -1140,7 +1149,9 @@ function renderDossiers(){
   zonesToShow.forEach(z=>{
     let ds=state.dossiers.filter(d=>(d.zone||'Autres')===z && match(d));
     if(!ds.length) return;
-    ds=ds.slice().sort((a,b)=>smap[b.id].charges-smap[a.id].charges);
+    ds=ds.slice().sort((a,b)=> dossSort==='nom'
+      ? (a.nom||'').localeCompare(b.nom||'','fr')*dossDir
+      : ((smap[a.id][dossSort]||0)-(smap[b.id][dossSort]||0))*dossDir);
     let ca=0,ch=0,nf=0; ds.forEach(d=>{ const s=smap[d.id]; ca+=s.produits; ch+=s.charges; nf+=s.count; });
     const m=ZMETA[z]||{ic:'📁',lbl:z};
     const rows=ds.map(d=>{ const s=smap[d.id];
@@ -1158,7 +1169,14 @@ function renderDossiers(){
         <div class="zsec-sum">Achats <b>${fmtK(ch)}</b>${ca>0?` · Ventes <b>${fmtK(ca)}</b>`:''}</div>
       </div>
       <div class="table-wrap"><div class="tscroll"><table class="doss-table">
-        <thead><tr><th>Dossier</th><th>Statut</th><th class="r">Factures</th><th class="r">Achats HT</th><th class="r">Ventes HT</th><th></th></tr></thead>
+        <thead><tr>
+          <th class="sortable" onclick="setDossSort('nom')">Dossier${sar('nom')}</th>
+          <th>Statut</th>
+          <th class="r sortable" onclick="setDossSort('count')">Factures${sar('count')}</th>
+          <th class="r sortable" onclick="setDossSort('charges')">Achats HT${sar('charges')}</th>
+          <th class="r sortable" onclick="setDossSort('produits')">Ventes HT${sar('produits')}</th>
+          <th></th>
+        </tr></thead>
         <tbody>${rows}</tbody></table></div></div>
     </div>`;
   });
