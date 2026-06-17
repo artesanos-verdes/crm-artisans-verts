@@ -1682,11 +1682,11 @@ function openGuide(){
     </div>
     <div class="modal-body guide">
       <p class="g-hello">${hello}</p>
-      <p class="g-intro">Ce CRM réunit <b>toute la compta de gestion</b> des Artisans Verts : les <b>factures</b> (achats fournisseurs & ventes), la <b>marge par chantier/dossier</b>, et un <b>agent de contrôle des prix</b> qui détecte les erreurs de facturation. Tout est <b>partagé en temps réel</b> entre Jonathan, Naomi et Benjamin ☁️.</p>
+      <p class="g-intro">Ce CRM réunit <b>toute la facturation</b> des Artisans Verts : les <b>factures</b> (achats fournisseurs & ventes), le suivi <b>par chantier/dossier et par activité</b> (💡 LED · 🏘️ AMPLEUR · 🌾 AGRI · 🏠 ITE), et un <b>agent de contrôle des prix</b> qui détecte les erreurs de facturation. Tout est <b>partagé en temps réel</b> entre Jonathan, Naomi et Benjamin ☁️.</p>
 
       <div class="g-toc">
         <a href="#g1">1 · Se connecter</a><a href="#g2">2 · Les 5 onglets</a><a href="#g3">3 · Tâches courantes</a>
-        <a href="#g4">4 · L'assistant IA 🤖</a><a href="#g5">5 · Travail en équipe ☁️</a><a href="#g6">6 · Raccourcis ⌨️</a><a href="#g7">7 · Sécurité & sauvegarde</a>
+        <a href="#g4">4 · L'assistant IA 🤖</a><a href="#g5">5 · Travail en équipe ☁️</a><a href="#g6">6 · Raccourcis ⌨️</a><a href="#g7">7 · Sécurité & sauvegarde</a><a href="#g8">8 · Faire évoluer le CRM 💡</a>
       </div>
 
       <h4 id="g1">1 · Se connecter & ton compte</h4>
@@ -1698,16 +1698,18 @@ function openGuide(){
 
       <h4 id="g2">2 · Les 5 onglets</h4>
       <div class="g-grid">
-        <div class="g-card"><div class="g-ic">📊</div><b>Tableau de bord</b><p>Vue d'ensemble : chiffre d'affaires, charges, marge, montant restant à encaisser et à payer, échéances à venir.</p></div>
-        <div class="g-card"><div class="g-ic">🧾</div><b>Factures</b><p>Toutes les factures d'<b>achat</b> (fournisseurs) et de <b>vente</b>. Recherche, filtres (statut, dossier, mois), ajout, modification, marquage « payé », import/export CSV.</p></div>
-        <div class="g-card"><div class="g-ic">📁</div><b>Dossiers</b><p>Un dossier = un chantier/client. Affiche la <b>marge</b> (ventes − charges) de chaque dossier. C'est ici qu'on voit la rentabilité par affaire.</p></div>
-        <div class="g-card"><div class="g-ic">🔎</div><b>Contrôle prix</b><p>L'agent anti-erreurs : compare les lignes de facture fournisseur à un <b>référentiel de prix convenus</b> et signale les dépassements, remises non appliquées, lignes facturées à tort, doublons → avec lettres de réclamation prêtes à envoyer.</p></div>
-        <div class="g-card"><div class="g-ic">💾</div><b>Données</b><p>Import CSV, <b>sauvegarde / restauration</b> (JSON), modèle d'import, réinitialisation. C'est ici qu'on a chargé les 2 431 factures.</p></div>
+        <div class="g-card"><div class="g-ic">📊</div><b>Tableau de bord</b><p>Vue d'ensemble axée facturation : <b>Achats HT</b>, <b>Ventes HT</b>, montant <b>à décaisser</b>, <b>échéances</b> à venir, factures par activité et top fournisseurs.</p></div>
+        <div class="g-card"><div class="g-ic">🧾</div><b>Factures</b><p>Toutes les factures d'<b>achat</b> et de <b>vente</b>, <b>regroupées par activité</b> (LED/AMPLEUR/AGRI/ITE) ou <b>par fournisseur</b> (tri montant/nom). Recherche, filtres, ajout, <b>scan photo/PDF 📷</b>, « payé », import/export CSV.</p></div>
+        <div class="g-card"><div class="g-ic">📁</div><b>Dossiers</b><p>Un dossier = un chantier/client. Affiché en <b>tableau par activité</b> (Achats HT / Ventes HT), avec recherche et <b>colonnes triables</b>. Clic = voir les factures du dossier.</p></div>
+        <div class="g-card"><div class="g-ic">🔎</div><b>Contrôle prix</b><p>L'agent anti-erreurs : signale dépassements, remises non appliquées, lignes facturées à tort, doublons → avec <b>lettres de réclamation</b> prêtes à envoyer. Bouton <b>📋 Audit AXDIS</b> = recharge l'analyse de réclamation (<b>69 418 € HT</b>).</p></div>
+        <div class="g-card"><div class="g-ic">💾</div><b>Données</b><p>Import CSV, <b>sauvegarde / restauration</b> (JSON), modèle d'import, réinitialisation. C'est ici qu'on importe les données en masse.</p></div>
       </div>
 
       <h4 id="g3">3 · Tâches courantes (pas à pas)</h4>
       <div class="g-task"><b>➕ Ajouter une facture</b><span>Bouton vert <b>« Nouvelle facture »</b> (en haut) → choisis Achat ou Vente, le tiers, le montant HT, la TVA, le dossier, le statut (payé / à payer) → <b>Enregistrer</b>. Le TTC se calcule tout seul.</span></div>
+      <div class="g-task"><b>📷 Scanner une facture (photo / PDF)</b><span>Dans « Nouvelle facture », clique <b>« Scanner une facture »</b> → dépose une photo ou un PDF → l'IA <b>pré-remplit</b> les champs (tu vérifies puis Enregistres). Tu peux aussi déposer la facture directement dans l'assistant ✨ via <b>📎</b>.</span></div>
       <div class="g-task"><b>✅ Marquer une facture payée</b><span>Dans l'onglet Factures, clique sur la pastille de statut de la ligne (ou ouvre la facture) → bascule en « Payé ».</span></div>
+      <div class="g-task"><b>📋 Réclamer les avoirs AXDIS</b><span>Onglet <b>Contrôle prix</b> → bouton <b>📋 Audit AXDIS</b> (un clic charge l'analyse, <b>69 418 € HT</b> à réclamer) → puis <b>« Générer les réclamations »</b> pour la lettre. C'est partagé avec les 3 comptes.</span></div>
       <div class="g-task"><b>📁 Créer un dossier / chantier</b><span>Onglet Dossiers → <b>« Nouveau dossier »</b> → nom, client, fiche, zone, statut. Rattache ensuite tes factures à ce dossier pour suivre sa marge.</span></div>
       <div class="g-task"><b>🔍 Rechercher / filtrer</b><span>La barre de recherche en haut cherche dans factures, tiers et dossiers. Dans l'onglet Factures, utilise les filtres (statut, type, dossier, mois) pour cibler.</span></div>
       <div class="g-task"><b>📥 Importer un CSV</b><span>Onglet Données → <b>Importer</b>. Format français (séparateur « ; », montants « 1 234,56 », dates JJ/MM/AAAA). Un modèle est téléchargeable dans le menu ⋮.</span></div>
@@ -1746,6 +1748,10 @@ function openGuide(){
         <li>Pense à faire de temps en temps une <b>sauvegarde JSON</b> (menu ⋮ → Exporter la sauvegarde) — c'est ta copie de secours.</li>
         <li>⚠️ Le bouton <b>« Tout réinitialiser »</b> efface les données : à n'utiliser qu'en connaissance de cause.</li>
       </ul>
+
+      <h4 id="g8">8 · Faire évoluer le CRM 💡</h4>
+      <p>Une idée d'amélioration ? Menu <b>⋮</b> → <b>« 💡 Suggérer une amélioration »</b> : décris ce que tu veux, l'app génère un <b>prompt prêt à coller dans Claude Code</b> (tout le contexte technique est déjà dedans). <b>Copie-le</b> et envoie-le à Jonathan, ou colle-le dans Claude Code.</p>
+      <div class="g-tip">🔜 Bientôt : une <b>veille tarifaire permanente</b> — le CRM surveillera automatiquement toutes les factures et remontera directement toute erreur de tarification.</div>
 
       <p class="g-foot">Une question ? Contacte <b>Jonathan</b>. Bonne gestion ! 🌿</p>
     </div>
