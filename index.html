@@ -414,6 +414,10 @@ html{scroll-behavior:smooth}
 .grp-row.grp-four:hover td,.grp-row.grp-four.open td{background:var(--brand-tint)}
 .grp-caret{display:inline-block;width:15px;color:var(--ink-soft);font-size:11px}
 .grp-row.grp-four .tiers-dot{width:9px;height:9px;margin:0 9px 0 2px;display:inline-block;border-radius:50%}
+.scan-hint{font-size:12.5px;color:var(--ink-soft);background:var(--brand-tint);border-radius:9px;padding:9px 12px;margin-bottom:14px;line-height:1.45}
+.scan-hint b{color:var(--brand)} .scan-hint .muted{color:var(--ink-faint)}
+#scanBtn{background:var(--brand-tint);border-color:var(--brand-tint);color:var(--brand);font-weight:600}
+#scanBtn:hover{background:#dce8dc}
 </style>
 
 <header>
@@ -967,8 +971,12 @@ function openFacture(id){
   document.getElementById('modal').className='modal';
   document.getElementById('modal').innerHTML = `
     <div class="modal-head"><h3>${isEdit?'Modifier la facture':'Nouvelle facture'}</h3>
-      <button class="x" onclick="closeModal()">✕</button></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn sm" id="scanBtn" onclick="scanFacture()" title="Lire une photo ou un PDF de facture et pré-remplir">📷 Scanner une facture</button>
+        <button class="x" onclick="closeModal()">✕</button>
+      </div></div>
     <div class="modal-body">
+      <div class="scan-hint">📷 <b>Scanner une facture</b> : dépose une photo ou un PDF, l'IA pré-remplit les champs (tu valides). <span class="muted">Nécessite l'assistant connecté (⚙️).</span></div>
       <div class="form-grid">
         <div class="field"><label>Type</label>
           <select id="f_type">
@@ -2029,9 +2037,10 @@ function aiApply(actions){
   return log;
 }
 
-async function aiCall(messages){
+async function aiCall(messages, opts){
+  opts=opts||{};
   const cfg=aiCfg();
-  const body={ model:AI_MODEL, max_tokens:1200, system:AI_SYSTEM, messages };
+  const body={ model:AI_MODEL, max_tokens:opts.max_tokens||1200, system:opts.system||AI_SYSTEM, messages };
   let url='https://api.anthropic.com/v1/messages';
   const headers={'Content-Type':'application/json'};
   if(cfg.endpoint){ url=cfg.endpoint; }
@@ -2040,6 +2049,60 @@ async function aiCall(messages){
   if(!r.ok){ const t=await r.text().catch(()=> ''); throw new Error('HTTP '+r.status+(t?(' — '+t.slice(0,180)):'')); }
   const data=await r.json();
   return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+}
+
+/* ---------- Lecture de facture par l'IA (photo / PDF -> champs) ---------- */
+function readFileForAI(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>{ const res=String(r.result||''); const data=res.split(',')[1]||'';
+      const mime=file.type||'image/jpeg';
+      const kind=(/pdf/i.test(mime)||/\.pdf$/i.test(file.name))?'pdf':'image';
+      resolve({data, mime: kind==='pdf'?'application/pdf':mime, kind}); };
+    r.onerror=()=>reject(new Error('Lecture du fichier impossible'));
+    r.readAsDataURL(file);
+  });
+}
+async function aiExtractFacture(file){
+  if(file.size > 9*1024*1024) throw new Error('Fichier trop lourd (max ~9 Mo)');
+  const {data, mime, kind}=await readFileForAI(file);
+  const block = kind==='pdf'
+    ? {type:'document', source:{type:'base64', media_type:'application/pdf', data}}
+    : {type:'image',    source:{type:'base64', media_type:mime, data}};
+  const sys=`Tu extrais les informations d'UNE facture (française) pour les saisir dans un CRM comptable.
+Réponds STRICTEMENT par un objet JSON, sans aucun texte autour, au format :
+{"type":"achat","tiers":"","ref":"","date":"AAAA-MM-JJ","ht":0,"tva":20,"ttc":0,"libelle":""}
+Règles : type="achat" si c'est une facture reçue d'un fournisseur, "vente" si c'est une facture émise à un client. tiers = nom du fournisseur (ou du client pour une vente). ref = numéro de facture. date = date de la facture (AAAA-MM-JJ). ht/ttc = montants en nombres (point décimal, sans symbole). tva = taux en % (ex 20, 10, 5.5, 0). libelle = courte description. Mets "" ou 0 si une valeur est absente.`;
+  const messages=[{role:'user', content:[ block, {type:'text', text:'Extrais les champs de cette facture en JSON.'} ]}];
+  const raw=await aiCall(messages, {system:sys, max_tokens:700});
+  let parsed=null;
+  try{ parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```$/,'')); }catch(e){}
+  if(!parsed || typeof parsed!=='object') throw new Error('Réponse illisible : '+raw.slice(0,120));
+  return parsed;
+}
+function scanFacture(){
+  const i=document.createElement('input'); i.type='file'; i.accept='image/*,application/pdf';
+  i.onchange=async e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const btn=document.getElementById('scanBtn');
+    if(btn){ btn.disabled=true; btn.dataset.html=btn.innerHTML; btn.innerHTML='⏳ Lecture…'; }
+    try{
+      const d=await aiExtractFacture(file);
+      const g=id=>document.getElementById(id);
+      if(g('f_type') && d.type) g('f_type').value=(d.type==='vente'?'vente':'achat');
+      if(g('f_tiers') && d.tiers) g('f_tiers').value=d.tiers;
+      if(g('f_ref') && d.ref) g('f_ref').value=String(d.ref);
+      if(g('f_date') && d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) g('f_date').value=d.date;
+      if(g('f_lib') && d.libelle) g('f_lib').value=d.libelle;
+      if(g('f_ht') && d.ht!=null && d.ht!=='') g('f_ht').value=String(d.ht).replace('.',',');
+      if(g('f_tva') && d.tva!=null && d.tva!=='') g('f_tva').value=String(parseNum(d.tva));
+      if(g('f_ttc') && d.ttc!=null && d.ttc!=='' && parseNum(d.ttc)>0){ g('f_ttc').value=String(d.ttc).replace('.',','); }
+      else if(typeof calcFromHT==='function'){ calcFromHT(); }
+      toast('Facture lue ✓ — vérifie les champs puis Enregistre','ok');
+    }catch(err){ toast('Lecture impossible : '+((err&&err.message)||err),'err'); }
+    finally{ const b=document.getElementById('scanBtn'); if(b){ b.disabled=false; b.innerHTML=b.dataset.html||'📷 Scanner'; } }
+  };
+  i.click();
 }
 
 let aiBusy=false, aiHist=[];

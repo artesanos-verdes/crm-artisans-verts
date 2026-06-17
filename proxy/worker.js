@@ -12,9 +12,8 @@
  */
 export default {
   async fetch(request, env) {
-    // ⚠️ En production, restreins l'origine au domaine du site, ex. :
-    // const ORIGIN = 'https://770lab.github.io';
-    const ORIGIN = '*';
+    // Origine autorisée = le domaine du CRM déployé (sécurité).
+    const ORIGIN = 'https://artesanos-verdes.github.io';
     const cors = {
       'Access-Control-Allow-Origin': ORIGIN,
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
