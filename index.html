@@ -407,6 +407,13 @@ html{scroll-behavior:smooth}
 #view-factures .grp-row td{font-size:14.5px;padding:13px 16px}
 #view-factures .zfilter .zchip{height:37px;font-size:14px;padding:0 16px}
 #view-factures .filters select,#view-factures .filters input{height:37px;font-size:14px}
+/* regroupement par fournisseur (replié / déplié) */
+.zfilter-group{margin-top:-2px;margin-bottom:14px}
+.grp-row.grp-four{cursor:pointer}
+.grp-row.grp-four td{border-left:none;box-shadow:none!important}
+.grp-row.grp-four:hover td,.grp-row.grp-four.open td{background:var(--brand-tint)}
+.grp-caret{display:inline-block;width:15px;color:var(--ink-soft);font-size:11px}
+.grp-row.grp-four .tiers-dot{width:9px;height:9px;margin:0 9px 0 2px;display:inline-block;border-radius:50%}
 </style>
 
 <header>
@@ -773,6 +780,10 @@ let searchTerm = '';
 function setFilter(k,v){ fFilter[k]=v; renderFactures(); }
 function setFactZone(z){ fFilter.zone=z; go('factures'); }          // depuis le tableau de bord
 function zoneOf(f){ const d=state.dossiers.find(x=>x.id===f.dossierId); return d?(d.zone||''):''; }
+let factGroupBy='activite';   // 'activite' | 'fournisseur' | 'aucun'
+let factOpen={};              // groupes fournisseur dépliés (clic)
+function setFactGroupBy(g){ factGroupBy=g; renderFactures(); }
+function toggleFournisseur(el){ const k=el.getAttribute('data-four'); factOpen[k]=!factOpen[k]; renderFactures(); }
 
 function filteredFactures(){
   let arr = state.factures.slice();
@@ -832,6 +843,13 @@ function renderFactures(){
       <span class="zfilter-lbl">Activité&nbsp;:</span>
       <button class="zchip ${!fFilter.zone?'active':''}" onclick="setFilter('zone','')">📋 Toutes <span class="zc-n">${state.factures.length}</span></button>
       ${zChips}
+    </div>
+
+    <div class="zfilter zfilter-group">
+      <span class="zfilter-lbl">Grouper&nbsp;:</span>
+      <button class="zchip ${factGroupBy==='activite'?'active':''}" onclick="setFactGroupBy('activite')">🗂️ Par activité</button>
+      <button class="zchip ${factGroupBy==='fournisseur'?'active':''}" onclick="setFactGroupBy('fournisseur')">🏢 Par fournisseur</button>
+      <button class="zchip ${factGroupBy==='aucun'?'active':''}" onclick="setFactGroupBy('aucun')">📄 Liste</button>
     </div>
 
     <div class="filters">
@@ -901,16 +919,30 @@ function factureRowHTML(f,zm){
     </div></td>
   </tr>`;
 }
-// Lignes du tableau, GROUPÉES par activité (sauf si une seule activité est filtrée)
+function grpSum(fs){ return fs.filter(f=>f.type!=='vente').reduce((s,f)=>s+(f.ht||0),0); }
+// Lignes du tableau, selon le mode de regroupement choisi
 function factRowsHTML(arr,zm){
+  // --- mode LISTE (plat) ---
+  if(factGroupBy==='aucun') return arr.map(f=>factureRowHTML(f,zm)).join('');
+  // --- groupé par FOURNISSEUR (replié, cliquable pour le détail) ---
+  if(factGroupBy==='fournisseur'){
+    const by={}; arr.forEach(f=>{ const k=f.tiers||'—'; (by[k]=by[k]||[]).push(f); });
+    const keys=Object.keys(by).sort((a,b)=>grpSum(by[b])-grpSum(by[a]));
+    return keys.map(k=>{
+      const fs=by[k], tot=grpSum(fs), open=!!factOpen[k];
+      const head=`<tr class="grp-row grp-four${open?' open':''}" data-four="${esc(k)}" onclick="toggleFournisseur(this)">
+        <td colspan="10"><span class="grp-caret">${open?'▾':'▸'}</span><span class="tiers-dot" style="background:${tierColor(k)}"></span><b>${esc(k)}</b> <span class="grp-n">${fs.length} facture${fs.length>1?'s':''}</span><span class="grp-sum">${fmtK(tot)} HT</span></td></tr>`;
+      return head + (open ? fs.map(f=>factureRowHTML(f,zm)).join('') : '');
+    }).join('');
+  }
+  // --- groupé par ACTIVITÉ (défaut) ---
   if(fFilter.zone) return arr.map(f=>factureRowHTML(f,zm)).join('');
   const order=['ITE','AGRI','AMPLEUR','LED'];
   const by={}; arr.forEach(f=>{ const z=zm[f.dossierId]||'Sans activité'; (by[z]=by[z]||[]).push(f); });
   const zs=order.filter(z=>by[z]).concat(Object.keys(by).filter(z=>!order.includes(z)).sort());
   return zs.map(z=>{
     const fs=by[z], m=(typeof ZMETA!=='undefined'&&ZMETA[z])||{ic:'📁',lbl:z};
-    const sub=fs.filter(f=>f.type!=='vente').reduce((s,f)=>s+(f.ht||0),0);
-    return `<tr class="grp-row zh-${esc(z)}"><td colspan="10"><span class="grp-ic">${m.ic}</span> <b>${esc(z)}</b> <span class="grp-n">${fs.length} facture${fs.length>1?'s':''}</span><span class="grp-sum">${fmtK(sub)} HT</span></td></tr>`
+    return `<tr class="grp-row zh-${esc(z)}"><td colspan="10"><span class="grp-ic">${m.ic}</span> <b>${esc(z)}</b> <span class="grp-n">${fs.length} facture${fs.length>1?'s':''}</span><span class="grp-sum">${fmtK(grpSum(fs))} HT</span></td></tr>`
       + fs.map(f=>factureRowHTML(f,zm)).join('');
   }).join('');
 }
