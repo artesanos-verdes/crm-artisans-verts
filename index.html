@@ -389,6 +389,8 @@ html{scroll-behavior:smooth}
 .zstat-mg{font-size:21px;font-weight:600;margin:7px 0 2px;letter-spacing:-.3px} .zstat-mg.pos{color:var(--pos)} .zstat-mg.neg{color:var(--neg)}
 .zstat-sub{font-size:12px;color:var(--ink-soft)}
 @media(max-width:720px){.zstats{grid-template-columns:repeat(2,1fr)}}
+.zfilter-fact{align-items:center;margin-bottom:12px}
+.zfilter-lbl{font-size:12px;font-weight:600;color:var(--ink-soft);margin-right:2px;text-transform:uppercase;letter-spacing:.4px}
 </style>
 
 <header>
@@ -641,17 +643,19 @@ function renderDashboard(){
   const fourArr = Object.entries(four).sort((a,b)=>b[1]-a[1]).slice(0,7);
   const maxFour = Math.max(1,...fourArr.map(x=>x[1]));
 
-  // bilan par activité (zone)
+  // répartition par activité (orientée factures)
+  const zmapD={}; state.dossiers.forEach(d=>zmapD[d.id]=d.zone||'Autres');
   const zoneStats={};
   state.dossiers.forEach(d=>{ const z=d.zone||'Autres'; const s=dossierStats(d.id);
-    zoneStats[z]=zoneStats[z]||{ca:0,ch:0,n:0}; zoneStats[z].ca+=s.produits; zoneStats[z].ch+=s.charges; zoneStats[z].n++; });
+    zoneStats[z]=zoneStats[z]||{ca:0,ch:0,nd:0,nf:0}; zoneStats[z].nd++; zoneStats[z].ca+=s.produits; zoneStats[z].ch+=s.charges; });
+  state.factures.forEach(f=>{ const z=zmapD[f.dossierId]; if(z&&zoneStats[z]) zoneStats[z].nf++; });
   const zKnown=['ITE','AGRI','AMPLEUR','LED'];
   const zoneOrder=zKnown.filter(z=>zoneStats[z]).concat(Object.keys(zoneStats).filter(z=>!zKnown.includes(z)));
   const zcards=zoneOrder.map(z=>{ const v=zoneStats[z], mg=v.ca-v.ch, m=(typeof ZMETA!=='undefined'&&ZMETA[z])||{ic:'📁',lbl:z};
-    return `<button class="zstat zh-${z}" onclick="go('dossiers');setDossZone('${z}')">
-      <div class="zstat-h">${m.ic} <b>${esc((m.lbl||z).split(' — ')[0])}</b> <span>${v.n}</span></div>
-      <div class="zstat-mg ${mg>=0?'pos':'neg'}">${fmtK(mg)}</div>
-      <div class="zstat-sub">CA ${fmtK(v.ca)} · Charges ${fmtK(v.ch)}</div>
+    return `<button class="zstat zh-${z}" onclick="setFactZone('${z}')" title="Voir les factures ${esc(z)}">
+      <div class="zstat-h">${m.ic} <b>${esc((m.lbl||z).split(' — ')[0])}</b> <span>${v.nf} fact.</span></div>
+      <div class="zstat-mg">${fmtK(v.ch)}</div>
+      <div class="zstat-sub">charges · ${v.nd} dossier${v.nd>1?'s':''}${v.ca>0?` · marge <b class="${mg>=0?'pos':'neg'}">${fmtK(mg)}</b>`:''}</div>
     </button>`;}).join('');
 
   el.innerHTML = `
@@ -674,7 +678,7 @@ function renderDashboard(){
     </div>
 
     <div class="panel zone-panel">
-      <div class="panel-head"><h3>Marge par activité</h3><span class="small">Cliquez une activité pour voir ses dossiers</span></div>
+      <div class="panel-head"><h3>Factures par activité</h3><span class="small">Cliquez pour filtrer les factures · charges HT</span></div>
       <div class="zstats">${zcards}</div>
     </div>
 
@@ -739,15 +743,18 @@ function upcomingTable(){
 /* ============================================================
    FACTURES
    ============================================================ */
-let fFilter = { dossier:'', statut:'', type:'', month:'', sort:'date', dir:-1 };
+let fFilter = { zone:'', dossier:'', statut:'', type:'', month:'', sort:'date', dir:-1 };
 let searchTerm = '';
 
 function setFilter(k,v){ fFilter[k]=v; renderFactures(); }
+function setFactZone(z){ fFilter.zone=z; go('factures'); }          // depuis le tableau de bord
+function zoneOf(f){ const d=state.dossiers.find(x=>x.id===f.dossierId); return d?(d.zone||''):''; }
 
 function filteredFactures(){
   let arr = state.factures.slice();
   const q = searchTerm.toLowerCase();
   if(q) arr = arr.filter(f=>[f.tiers,f.ref,f.libelle,dossierName(f.dossierId),f.categorie].join(' ').toLowerCase().includes(q));
+  if(fFilter.zone){ const zm={}; state.dossiers.forEach(d=>zm[d.id]=d.zone||''); arr = arr.filter(f=> (zm[f.dossierId]||'')===fFilter.zone); }
   if(fFilter.dossier) arr = arr.filter(f=> fFilter.dossier==='__none__' ? !f.dossierId : f.dossierId===fFilter.dossier);
   if(fFilter.type) arr = arr.filter(f=>(f.type||'achat')===fFilter.type);
   if(fFilter.statut){
@@ -780,6 +787,12 @@ function renderFactures(){
   }
 
   const arr = filteredFactures();
+  const zm={}; state.dossiers.forEach(d=>zm[d.id]=d.zone||'');
+  const zCount={}; state.factures.forEach(f=>{ const z=zm[f.dossierId]||''; if(z) zCount[z]=(zCount[z]||0)+1; });
+  const zKnown=['ITE','AGRI','AMPLEUR','LED'];
+  const zChips=zKnown.filter(z=>zCount[z]).concat(Object.keys(zCount).filter(z=>!zKnown.includes(z))).map(z=>{
+    const m=(typeof ZMETA!=='undefined'&&ZMETA[z])||{ic:'📁',lbl:z};
+    return `<button class="zchip ${fFilter.zone===z?'active':''}" onclick="setFilter('zone','${z}')">${m.ic} ${esc(z)} <span class="zc-n">${zCount[z]}</span></button>`;}).join('');
   const tHT = arr.filter(f=>f.type!=='vente').reduce((s,f)=>s+(f.ht||0),0);
   const tTTC = arr.filter(f=>f.type!=='vente').reduce((s,f)=>s+(f.ttc||0),0);
   const vHT = arr.filter(f=>f.type==='vente').reduce((s,f)=>s+(f.ht||0),0);
@@ -790,6 +803,12 @@ function renderFactures(){
   el.innerHTML = `
     <div class="section-head"><h2>Factures</h2>
       <div class="meta">${arr.length} ligne${arr.length>1?'s':''} affichée${arr.length>1?'s':''}${arr.length!==state.factures.length?` / ${state.factures.length}`:''}</div></div>
+
+    <div class="zfilter zfilter-fact">
+      <span class="zfilter-lbl">Activité&nbsp;:</span>
+      <button class="zchip ${!fFilter.zone?'active':''}" onclick="setFilter('zone','')">📋 Toutes <span class="zc-n">${state.factures.length}</span></button>
+      ${zChips}
+    </div>
 
     <div class="filters">
       <div class="chip-toggle">
@@ -809,7 +828,7 @@ function renderFactures(){
         ${state.dossiers.map(d=>`<option value="${d.id}" ${fFilter.dossier===d.id?'selected':''}>${esc(d.nom)}</option>`).join('')}
       </select>
       <input type="month" value="${fFilter.month}" onchange="setFilter('month',this.value)">
-      ${(fFilter.dossier||fFilter.statut||fFilter.type||fFilter.month||searchTerm)?`<button class="btn sm ghost filter-clear" onclick="clearFilters()">✕ Réinitialiser les filtres</button>`:''}
+      ${(fFilter.zone||fFilter.dossier||fFilter.statut||fFilter.type||fFilter.month||searchTerm)?`<button class="btn sm ghost filter-clear" onclick="clearFilters()">✕ Réinitialiser les filtres</button>`:''}
     </div>
 
     <div class="table-wrap"><div class="tscroll">
@@ -834,7 +853,7 @@ function renderFactures(){
               <td><span class="type-pill ${isV?'type-vente':'type-achat'}">${isV?'Vente':'Achat'}</span></td>
               <td class="cell-strong"><span class="tiers-dot" style="background:${tierColor(f.tiers)}"></span>${esc(f.tiers||'—')}</td>
               <td class="cell-ref mono">${esc(f.ref||'—')}</td>
-              <td>${f.dossierId?`<span class="tag">${esc(dossierName(f.dossierId))}</span>`:'<span style="color:var(--ink-faint)">—</span>'}</td>
+              <td>${zm[f.dossierId]?`<span class="tag z-${zm[f.dossierId]}">${esc(zm[f.dossierId])}</span> `:''}${f.dossierId?`<span class="tag">${esc(dossierName(f.dossierId))}</span>`:'<span style="color:var(--ink-faint)">—</span>'}</td>
               <td class="r num">${fmt(f.ht)}</td>
               <td class="r num" style="color:var(--ink-soft)">${(f.tva||0).toString().replace('.',',')}%</td>
               <td class="r num cell-strong">${fmt(f.ttc)}</td>
@@ -859,7 +878,7 @@ function renderFactures(){
 }
 
 function sortBy(c){ if(fFilter.sort===c) fFilter.dir*=-1; else { fFilter.sort=c; fFilter.dir = (c==='ht'||c==='ttc'||c==='tva'||c==='date')?-1:1; } renderFactures(); }
-function clearFilters(){ fFilter={...fFilter,dossier:'',statut:'',type:'',month:''}; searchTerm=''; document.getElementById('search').value=''; renderFactures(); }
+function clearFilters(){ fFilter={...fFilter,zone:'',dossier:'',statut:'',type:'',month:''}; searchTerm=''; document.getElementById('search').value=''; renderFactures(); }
 
 function statusBadge(f){
   const s = effStatut(f);
