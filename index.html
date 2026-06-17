@@ -362,7 +362,33 @@ html{scroll-behavior:smooth}
   main{padding:16px 14px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   .guide .g-grid{grid-template-columns:1fr}
+  .zsec-head{flex-direction:column;align-items:flex-start;gap:6px}
 }
+/* ====== Filtres & regroupement par activité (Dossiers) ====== */
+.zfilter{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.zchip{height:32px;padding:0 13px;border-radius:20px;border:1px solid var(--line-strong);background:var(--surface);font-weight:600;font-size:13px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:6px;transition:.12s}
+.zchip:hover{border-color:var(--ink-faint);background:var(--surface-2)}
+.zchip.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+.zchip .zc-n{font-size:11px;background:rgba(0,0,0,.08);border-radius:10px;padding:0 6px}
+.zchip.active .zc-n{background:rgba(255,255,255,.22)}
+.zsec{margin-bottom:26px}
+.zsec-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:11px 15px;border-radius:11px;background:var(--surface-2);border:1px solid var(--line);border-left:4px solid var(--line-strong);margin-bottom:13px}
+.zsec-head.zh-ITE{border-left-color:var(--gold)} .zsec-head.zh-AGRI{border-left-color:var(--brand)}
+.zsec-head.zh-AMPLEUR{border-left-color:#2a5a8f} .zsec-head.zh-LED{border-left-color:#6b3fa0}
+.zsec-title{font-size:15px} .zsec-count{font-size:12px;color:var(--ink-soft);margin-left:4px;font-weight:500}
+.zsec-sum{font-size:13px;color:var(--ink-soft)} .zsec-sum b{color:var(--ink)} .zsec-sum b.pos{color:var(--pos)} .zsec-sum b.neg{color:var(--neg)}
+.tag.z-ITE{background:var(--gold-tint);color:var(--gold)} .tag.z-AGRI{background:var(--brand-tint);color:var(--brand)}
+.tag.z-AMPLEUR{background:#e6eef7;color:#2a5a8f} .tag.z-LED{background:#efe7f7;color:#6b3fa0}
+/* ====== Marge par activité (Tableau de bord) ====== */
+.zone-panel{margin-bottom:22px}
+.zstats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.zstat{text-align:left;border:1px solid var(--line);border-radius:11px;padding:13px 15px;background:var(--surface);cursor:pointer;border-left:4px solid var(--line-strong);transition:.12s;font-family:inherit}
+.zstat:hover{box-shadow:var(--shadow);transform:translateY(-1px);border-color:var(--ink-faint)}
+.zstat.zh-ITE{border-left-color:var(--gold)} .zstat.zh-AGRI{border-left-color:var(--brand)} .zstat.zh-AMPLEUR{border-left-color:#2a5a8f} .zstat.zh-LED{border-left-color:#6b3fa0}
+.zstat-h{font-size:13px;color:var(--ink-soft);display:flex;align-items:center;gap:6px} .zstat-h b{color:var(--ink);font-size:14px} .zstat-h span{margin-left:auto;font-size:11px;background:var(--line);border-radius:10px;padding:0 7px;color:var(--ink-soft)}
+.zstat-mg{font-size:21px;font-weight:600;margin:7px 0 2px;letter-spacing:-.3px} .zstat-mg.pos{color:var(--pos)} .zstat-mg.neg{color:var(--neg)}
+.zstat-sub{font-size:12px;color:var(--ink-soft)}
+@media(max-width:720px){.zstats{grid-template-columns:repeat(2,1fr)}}
 </style>
 
 <header>
@@ -615,6 +641,19 @@ function renderDashboard(){
   const fourArr = Object.entries(four).sort((a,b)=>b[1]-a[1]).slice(0,7);
   const maxFour = Math.max(1,...fourArr.map(x=>x[1]));
 
+  // bilan par activité (zone)
+  const zoneStats={};
+  state.dossiers.forEach(d=>{ const z=d.zone||'Autres'; const s=dossierStats(d.id);
+    zoneStats[z]=zoneStats[z]||{ca:0,ch:0,n:0}; zoneStats[z].ca+=s.produits; zoneStats[z].ch+=s.charges; zoneStats[z].n++; });
+  const zKnown=['ITE','AGRI','AMPLEUR','LED'];
+  const zoneOrder=zKnown.filter(z=>zoneStats[z]).concat(Object.keys(zoneStats).filter(z=>!zKnown.includes(z)));
+  const zcards=zoneOrder.map(z=>{ const v=zoneStats[z], mg=v.ca-v.ch, m=(typeof ZMETA!=='undefined'&&ZMETA[z])||{ic:'📁',lbl:z};
+    return `<button class="zstat zh-${z}" onclick="go('dossiers');setDossZone('${z}')">
+      <div class="zstat-h">${m.ic} <b>${esc((m.lbl||z).split(' — ')[0])}</b> <span>${v.n}</span></div>
+      <div class="zstat-mg ${mg>=0?'pos':'neg'}">${fmtK(mg)}</div>
+      <div class="zstat-sub">CA ${fmtK(v.ca)} · Charges ${fmtK(v.ch)}</div>
+    </button>`;}).join('');
+
   el.innerHTML = `
     <div class="section-head"><h2>Tableau de bord</h2>
       <div class="meta">${state.factures.length} factures · ${state.dossiers.length} dossiers</div></div>
@@ -632,6 +671,11 @@ function renderDashboard(){
       <div class="kpi"><div class="label">Échéances ≤ 30 j</div>
         <div class="val ${g.ech30>0?'neg':''}">${fmtK(g.ech30)}</div>
         <div class="hint"><b>${g.ech30Count}</b> à régler bientôt</div></div>
+    </div>
+
+    <div class="panel zone-panel">
+      <div class="panel-head"><h3>Marge par activité</h3><span class="small">Cliquez une activité pour voir ses dossiers</span></div>
+      <div class="zstats">${zcards}</div>
     </div>
 
     <div class="grid-2">
@@ -936,6 +980,36 @@ function delFacture(id, fromModal){
 /* ============================================================
    DOSSIERS
    ============================================================ */
+const ZMETA={ITE:{ic:'🏠',lbl:'ITE — Isolation ext.'},AGRI:{ic:'🌾',lbl:'AGRI — Déshumidif.'},AMPLEUR:{ic:'🏘️',lbl:'AMPLEUR — Rénov. ANAH'},LED:{ic:'💡',lbl:'LED — Éclairage indus.'}};
+const ZORDER=['ITE','AGRI','AMPLEUR','LED'];
+let dossZone='';            // '' = toutes les activités
+let dossSearch='';
+function setDossZone(z){ dossZone=z; renderDossiers(); }
+function dossierCard(d){
+  const st=dossierStats(d.id);
+  const w = st.produits>0 ? Math.max(0,Math.min(100, Math.round(st.marge/st.produits*100))) : 0;
+  return `<div class="doss-card">
+    <div class="doss-top" style="cursor:pointer" onclick="openDossier('${d.id}')">
+      <div class="nm">${esc(d.nom)}</div>
+      ${d.client && d.client!==d.nom?`<div class="cli">${esc(d.client)}</div>`:''}
+      <div class="doss-meta">
+        ${d.fiche?`<span class="tag">${esc(d.fiche)}</span>`:''}
+        ${d.zone?`<span class="tag z-${esc(d.zone)}">${esc(d.zone)}</span>`:''}
+        ${d.statut?`<span class="tag">${esc(d.statut)}</span>`:''}
+      </div>
+    </div>
+    <div class="doss-fin">
+      <div class="fin-cell"><div class="l">Produits</div><div class="n">${fmtK(st.produits)}</div></div>
+      <div class="fin-cell"><div class="l">Charges</div><div class="n">${fmtK(st.charges)}</div></div>
+      <div class="fin-cell"><div class="l">Marge</div><div class="n ${st.marge>=0?'pos':'neg'}">${fmtK(st.marge)}</div></div>
+    </div>
+    <div class="marge-bar"><div class="f" style="width:${w}%;background:${st.marge>=0?'var(--pos)':'var(--neg)'}"></div></div>
+    <div class="doss-foot">
+      <span class="cnt">${st.count} facture${st.count>1?'s':''} · marge ${pct(st.tauxMarge)}</span>
+      <button class="btn sm ghost" onclick="viewDossierFactures('${d.id}')">Voir les factures →</button>
+    </div>
+  </div>`;
+}
 function renderDossiers(){
   const el = document.getElementById('view-dossiers');
   if(!state.dossiers.length){
@@ -945,36 +1019,33 @@ function renderDossiers(){
       `<button class="btn primary" onclick="openDossier()">Créer un dossier</button>`);
     return;
   }
-  const cards = state.dossiers.map(d=>{
-    const st=dossierStats(d.id);
-    const w = st.produits>0 ? Math.max(0,Math.min(100, Math.round(st.marge/st.produits*100))) : 0;
-    return `<div class="doss-card">
-      <div class="doss-top" style="cursor:pointer" onclick="openDossier('${d.id}')">
-        <div class="nm">${esc(d.nom)}</div>
-        ${d.client?`<div class="cli">${esc(d.client)}</div>`:''}
-        <div class="doss-meta">
-          ${d.fiche?`<span class="tag">${esc(d.fiche)}</span>`:''}
-          ${d.zone?`<span class="tag">Zone ${esc(d.zone)}</span>`:''}
-          ${d.statut?`<span class="tag">${esc(d.statut)}</span>`:''}
-        </div>
-      </div>
-      <div class="doss-fin">
-        <div class="fin-cell"><div class="l">Produits</div><div class="n">${fmtK(st.produits)}</div></div>
-        <div class="fin-cell"><div class="l">Charges</div><div class="n">${fmtK(st.charges)}</div></div>
-        <div class="fin-cell"><div class="l">Marge</div><div class="n ${st.marge>=0?'pos':'neg'}">${fmtK(st.marge)}</div></div>
-      </div>
-      <div class="marge-bar"><div class="f" style="width:${w}%;background:${st.marge>=0?'var(--pos)':'var(--neg)'}"></div></div>
-      <div class="doss-foot">
-        <span class="cnt">${st.count} facture${st.count>1?'s':''} · marge ${pct(st.tauxMarge)}</span>
-        <button class="btn sm ghost" onclick="viewDossierFactures('${d.id}')">Voir les factures →</button>
-      </div>
-    </div>`;}).join('');
+  const zonesPresent=[...new Set(state.dossiers.map(d=>d.zone||'Autres'))];
+  const ordered = ZORDER.filter(z=>zonesPresent.includes(z)).concat(zonesPresent.filter(z=>!ZORDER.includes(z)).sort());
+  const chip=(z,lbl,ic,n)=>`<button class="zchip ${dossZone===z?'active':''} ${z?('zc-'+z):''}" onclick="setDossZone('${z}')">${ic} ${lbl}${n!=null?` <span class="zc-n">${n}</span>`:''}</button>`;
+  let chips=chip('','Tous','📋',state.dossiers.length);
+  ordered.forEach(z=>{ const m=ZMETA[z]||{ic:'📁',lbl:z}; chips+=chip(z,m.lbl.split(' — ')[0],m.ic,state.dossiers.filter(d=>(d.zone||'Autres')===z).length); });
 
-  el.innerHTML = `<div class="section-head"><h2>Dossiers</h2>
+  const zonesToShow = dossZone ? [dossZone] : ordered;
+  let body='';
+  zonesToShow.forEach(z=>{
+    const ds=state.dossiers.filter(d=>(d.zone||'Autres')===z);
+    if(!ds.length) return;
+    let ca=0,ch=0; ds.forEach(d=>{ const s=dossierStats(d.id); ca+=s.produits; ch+=s.charges; });
+    const mg=ca-ch, m=ZMETA[z]||{ic:'📁',lbl:z};
+    const cards=ds.slice().sort((a,b)=>dossierStats(b.id).marge-dossierStats(a.id).marge).map(dossierCard).join('');
+    body+=`<div class="zsec">
+      <div class="zsec-head zh-${esc(z)}">
+        <div class="zsec-title">${m.ic} <b>${esc(m.lbl)}</b> <span class="zsec-count">${ds.length} dossier${ds.length>1?'s':''}</span></div>
+        <div class="zsec-sum">CA <b>${fmtK(ca)}</b> · Charges <b>${fmtK(ch)}</b> · Marge <b class="${mg>=0?'pos':'neg'}">${fmtK(mg)}</b></div>
+      </div>
+      <div class="doss-grid">${cards}</div>
+    </div>`;
+  });
+  el.innerHTML = `<div class="section-head"><h2>Dossiers <span class="meta">— par activité</span></h2>
     <button class="btn primary" onclick="openDossier()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       Nouveau dossier</button></div>
-    <div class="doss-grid">${cards}</div>`;
+    <div class="zfilter">${chips}</div>${body}`;
 }
 
 function viewDossierFactures(id){ go('factures'); clearFilters(); setFilter('dossier',id); }
