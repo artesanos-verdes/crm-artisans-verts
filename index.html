@@ -314,6 +314,55 @@
 #loginGate .lg-note{color:#97a08e;font-size:11px;margin-top:14px;text-align:center}
 #lg-badge{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:#234E2C;margin-left:auto}
 #lg-badge button{border:1px solid #d8d0bd;background:#fff;border-radius:7px;padding:3px 9px;cursor:pointer;font-size:12px;color:#6b7666}
+
+/* ====== Ergonomie & fluidité (ajouts) ====== */
+html{scroll-behavior:smooth}
+*:focus-visible{outline:2px solid var(--brand-2);outline-offset:2px;border-radius:4px}
+.btn:active{transform:translateY(1px)}
+.tab:active{transform:translateY(1px)}
+.overlay{animation:ovfade .16s ease}
+@keyframes ovfade{from{opacity:0}to{opacity:1}}
+.guide-btn svg{transition:.15s}
+.guide-btn:hover svg{transform:scale(1.08)}
+/* indicateur de synchronisation cloud */
+#syncPill{display:none;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-soft);white-space:nowrap;margin-left:10px}
+#syncPill .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-faint)}
+#syncPill.ok{color:var(--brand);border-color:var(--brand-tint);background:var(--brand-tint)} #syncPill.ok .dot{background:var(--pos)}
+#syncPill.saving{color:var(--gold);border-color:var(--gold-tint);background:var(--gold-tint)} #syncPill.saving .dot{background:var(--gold);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+/* ====== Guide d'utilisation ====== */
+.guide{max-height:70vh;overflow:auto;font-size:14px;line-height:1.6}
+.guide .g-hello{font-size:15px}
+.guide .g-intro{color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0 4px}
+.guide .g-toc{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}
+.guide .g-toc a{font-size:12.5px;font-weight:600;padding:5px 10px;border:1px solid var(--line);border-radius:20px;background:var(--surface)}
+.guide .g-toc a:hover{background:var(--brand-tint);border-color:var(--brand-tint);color:var(--brand)}
+.guide h4{margin:22px 0 10px;font-size:15.5px;color:var(--brand);scroll-margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.guide ul{margin:0 0 6px;padding-left:18px} .guide li{margin:5px 0}
+.guide .g-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:6px 0}
+.guide .g-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--surface)}
+.guide .g-card .g-ic{font-size:20px;margin-bottom:4px} .guide .g-card b{font-size:14px}
+.guide .g-card p{color:var(--ink-soft);font-size:13px;margin-top:3px}
+.guide .g-task{display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid var(--line)}
+.guide .g-task span{color:var(--ink-soft);font-size:13.5px}
+.guide .g-ex{color:var(--ink-soft)} .guide .g-ex li i{color:var(--ink)}
+.guide .g-tip{background:var(--brand-tint);border-radius:10px;padding:11px 14px;margin:12px 0;font-size:13.5px}
+.guide .g-foot{background:var(--surface-2);text-align:center;border-radius:10px;padding:11px 14px;margin:14px 0 0}
+.guide .g-kbds{display:flex;flex-wrap:wrap;gap:12px}
+.guide .g-kbds span{font-size:13px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:5px}
+.guide kbd{font-family:'IBM Plex Mono',monospace;font-size:12px;background:#fff;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--ink)}
+/* ====== Responsive ====== */
+@media(max-width:720px){
+  .topbar{flex-wrap:wrap;height:auto;padding:10px 14px;gap:10px}
+  .search{order:3;max-width:none;flex-basis:100%}
+  .brand .sub{display:none}
+  .actions .btn:not(.icon):not(.primary){display:none}
+  .tabs{overflow-x:auto;padding:0 14px;-webkit-overflow-scrolling:touch}
+  .tab{white-space:nowrap}
+  main{padding:16px 14px}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .guide .g-grid{grid-template-columns:1fr}
+}
 </style>
 
 <header>
@@ -342,11 +391,16 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Importer
       </button>
+      <button class="btn icon guide-btn" onclick="openGuide()" aria-label="Guide d'utilisation" title="Guide d'utilisation  ( ? )">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M9.4 9.3a2.6 2.6 0 0 1 4.8 1.3c0 1.7-2.6 2-2.6 3.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.05" fill="currentColor"/></svg>
+      </button>
       <div class="menu-wrap">
         <button class="btn icon" onclick="toggleMenu(event)" aria-label="Plus">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
         </button>
         <div class="menu" id="mainMenu">
+          <button onclick="openGuide()">📖 Guide d'utilisation</button>
+          <div class="sep"></div>
           <button onclick="exportJSON()">💾 Exporter la sauvegarde (JSON)</button>
           <button onclick="document.getElementById('jsonIn').click()">📂 Restaurer une sauvegarde</button>
           <div class="sep"></div>
@@ -1246,6 +1300,96 @@ function ensureDatalists(){
   document.body.appendChild(wrap);
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+
+/* ============================================================
+   Guide d'utilisation intégré (pour Benjamin, Naomi & l'équipe)
+   ============================================================ */
+function openGuide(){
+  if(typeof closeMenu==='function') closeMenu();
+  const who=(typeof lgCurrent==='function' && lgCurrent())||{};
+  const hello=who.name?`Bonjour <b>${esc(who.name)}</b> 👋 — voici tout ce qu'il faut savoir.`:`Bienvenue 👋 — voici tout ce qu'il faut savoir.`;
+  const m=document.getElementById('modal');
+  m.className='modal wide';
+  m.innerHTML=`
+    <div class="modal-head">
+      <h3>📖 Guide d'utilisation — CRM Les Artisans Verts</h3>
+      <button class="x" onclick="closeModal()" aria-label="Fermer">✕</button>
+    </div>
+    <div class="modal-body guide">
+      <p class="g-hello">${hello}</p>
+      <p class="g-intro">Ce CRM réunit <b>toute la compta de gestion</b> des Artisans Verts : les <b>factures</b> (achats fournisseurs & ventes), la <b>marge par chantier/dossier</b>, et un <b>agent de contrôle des prix</b> qui détecte les erreurs de facturation. Tout est <b>partagé en temps réel</b> entre Jonathan, Naomi et Benjamin ☁️.</p>
+
+      <div class="g-toc">
+        <a href="#g1">1 · Se connecter</a><a href="#g2">2 · Les 5 onglets</a><a href="#g3">3 · Tâches courantes</a>
+        <a href="#g4">4 · L'assistant IA 🤖</a><a href="#g5">5 · Travail en équipe ☁️</a><a href="#g6">6 · Raccourcis ⌨️</a><a href="#g7">7 · Sécurité & sauvegarde</a>
+      </div>
+
+      <h4 id="g1">1 · Se connecter & ton compte</h4>
+      <ul>
+        <li>Chacun a <b>son propre compte</b> (ton e-mail @artisansverts.energy + ton mot de passe).</li>
+        <li>Mot de passe oublié ? Clique <b>« Mot de passe oublié ? »</b> sur l'écran de connexion → tu reçois un e-mail pour le réinitialiser.</li>
+        <li>Une fois connecté, ton nom apparaît en haut à droite avec un <b>☁️</b> (= données synchronisées) et un <b>🔑</b> pour changer ton mot de passe. Le bouton <b>Déconnexion</b> est juste à côté.</li>
+      </ul>
+
+      <h4 id="g2">2 · Les 5 onglets</h4>
+      <div class="g-grid">
+        <div class="g-card"><div class="g-ic">📊</div><b>Tableau de bord</b><p>Vue d'ensemble : chiffre d'affaires, charges, marge, montant restant à encaisser et à payer, échéances à venir.</p></div>
+        <div class="g-card"><div class="g-ic">🧾</div><b>Factures</b><p>Toutes les factures d'<b>achat</b> (fournisseurs) et de <b>vente</b>. Recherche, filtres (statut, dossier, mois), ajout, modification, marquage « payé », import/export CSV.</p></div>
+        <div class="g-card"><div class="g-ic">📁</div><b>Dossiers</b><p>Un dossier = un chantier/client. Affiche la <b>marge</b> (ventes − charges) de chaque dossier. C'est ici qu'on voit la rentabilité par affaire.</p></div>
+        <div class="g-card"><div class="g-ic">🔎</div><b>Contrôle prix</b><p>L'agent anti-erreurs : compare les lignes de facture fournisseur à un <b>référentiel de prix convenus</b> et signale les dépassements, remises non appliquées, lignes facturées à tort, doublons → avec lettres de réclamation prêtes à envoyer.</p></div>
+        <div class="g-card"><div class="g-ic">💾</div><b>Données</b><p>Import CSV, <b>sauvegarde / restauration</b> (JSON), modèle d'import, réinitialisation. C'est ici qu'on a chargé les 2 431 factures.</p></div>
+      </div>
+
+      <h4 id="g3">3 · Tâches courantes (pas à pas)</h4>
+      <div class="g-task"><b>➕ Ajouter une facture</b><span>Bouton vert <b>« Nouvelle facture »</b> (en haut) → choisis Achat ou Vente, le tiers, le montant HT, la TVA, le dossier, le statut (payé / à payer) → <b>Enregistrer</b>. Le TTC se calcule tout seul.</span></div>
+      <div class="g-task"><b>✅ Marquer une facture payée</b><span>Dans l'onglet Factures, clique sur la pastille de statut de la ligne (ou ouvre la facture) → bascule en « Payé ».</span></div>
+      <div class="g-task"><b>📁 Créer un dossier / chantier</b><span>Onglet Dossiers → <b>« Nouveau dossier »</b> → nom, client, fiche, zone, statut. Rattache ensuite tes factures à ce dossier pour suivre sa marge.</span></div>
+      <div class="g-task"><b>🔍 Rechercher / filtrer</b><span>La barre de recherche en haut cherche dans factures, tiers et dossiers. Dans l'onglet Factures, utilise les filtres (statut, type, dossier, mois) pour cibler.</span></div>
+      <div class="g-task"><b>📥 Importer un CSV</b><span>Onglet Données → <b>Importer</b>. Format français (séparateur « ; », montants « 1 234,56 », dates JJ/MM/AAAA). Un modèle est téléchargeable dans le menu ⋮.</span></div>
+      <div class="g-task"><b>⬇️ Exporter</b><span>Menu <b>⋮</b> (en haut à droite) → exporter les factures en CSV, ou une sauvegarde JSON complète.</span></div>
+
+      <h4 id="g4">4 · L'assistant IA 🤖</h4>
+      <p>Le bouton rond en <b>bas à droite</b> ouvre un assistant : écris-lui en <b>français normal</b>, il agit directement sur le CRM. Exemples :</p>
+      <ul class="g-ex">
+        <li>« <i>Crée un dossier Chantier Dupont à Tours, fiche RES022, zone C</i> »</li>
+        <li>« <i>Ajoute une facture d'achat AXDIS de 1 200 € HT sur le dossier Vague 3</i> »</li>
+        <li>« <i>Combien je peux récupérer chez AXDIS et pour quels motifs ?</i> »</li>
+        <li>« <i>Génère les lettres de réclamation</i> »</li>
+      </ul>
+      <div class="g-tip">💡 L'assistant <b>pilote</b> le CRM et répond aux questions, mais <b>les calculs d'argent restent exacts et automatiques</b> — il n'invente jamais de montants.</div>
+
+      <h4 id="g5">5 · Travail en équipe ☁️</h4>
+      <ul>
+        <li>Tout est <b>synchronisé en temps réel</b> : quand Naomi ajoute une facture, Jonathan et Benjamin la voient apparaître <b>sans rien faire</b>.</li>
+        <li>Le petit indicateur en haut à droite affiche <b>« Synchronisé »</b> / <b>« Enregistrement… »</b> pour confirmer que tes modifications sont bien parties dans le cloud.</li>
+        <li>Ça marche aussi <b>hors-ligne</b> : tes saisies sont gardées et renvoyées dès le retour du réseau.</li>
+      </ul>
+
+      <h4 id="g6">6 · Raccourcis clavier ⌨️</h4>
+      <div class="g-kbds">
+        <span><kbd>/</kbd> Rechercher</span>
+        <span><kbd>N</kbd> Nouvelle facture</span>
+        <span><kbd>1</kbd>…<kbd>5</kbd> Changer d'onglet</span>
+        <span><kbd>?</kbd> Ouvrir ce guide</span>
+        <span><kbd>Échap</kbd> Fermer</span>
+      </div>
+
+      <h4 id="g7">7 · Sécurité & sauvegarde</h4>
+      <ul>
+        <li>L'accès est <b>réservé aux 3 comptes autorisés</b> — personne d'autre ne peut lire les données.</li>
+        <li>Tes données vivent dans une base sécurisée (Firestore), <b>pas dans la page</b>.</li>
+        <li>Pense à faire de temps en temps une <b>sauvegarde JSON</b> (menu ⋮ → Exporter la sauvegarde) — c'est ta copie de secours.</li>
+        <li>⚠️ Le bouton <b>« Tout réinitialiser »</b> efface les données : à n'utiliser qu'en connaissance de cause.</li>
+      </ul>
+
+      <p class="g-foot">Une question ? Contacte <b>Jonathan</b>. Bonne gestion ! 🌿</p>
+    </div>
+    <div class="modal-foot">
+      <span class="meta">Tu peux rouvrir ce guide à tout moment via le bouton <b>?</b> en haut.</span>
+      <button class="btn primary" onclick="closeModal()">J'ai compris 👍</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
 document.getElementById('overlay').addEventListener('click',e=>{ if(e.target.id==='overlay') closeModal(); });
 
 function toggleMenu(e){ e.stopPropagation(); document.getElementById('mainMenu').classList.toggle('open'); }
@@ -1980,10 +2124,11 @@ function lgEnter(){
     const bar=document.querySelector('.topbar')||document.querySelector('header');
     if(bar && !document.getElementById('lg-badge')){
       const b=document.createElement('div'); b.id='lg-badge';
-      b.innerHTML=`👤 ${esc(who.name)}${fbEnabled()?' <span title="Données synchronisées (cloud)">☁️</span>':''}${fbEnabled()?' <button onclick="lgChangePwd()" title="Changer mon mot de passe">🔑</button>':''} <button onclick="lgLogout()">Déconnexion</button>`;
+      b.innerHTML=`👤 ${esc(who.name)}${fbEnabled()?' <button onclick="lgChangePwd()" title="Changer mon mot de passe">🔑</button>':''} <button onclick="lgLogout()">Déconnexion</button>`;
       bar.appendChild(b);
     }
   }
+  if(typeof setSync==='function') setSync(fbEnabled()?'synced':null);
 }
 
 /* ---------- Backend Firebase (actif seulement si FIREBASE_CONFIG est rempli) ---------- */
@@ -2008,6 +2153,7 @@ function fbApplyRemote(d){
   try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
   fbApplying=false;
   renderAll();
+  setSync('synced');
 }
 // amorçage des données embarquées (EMBEDDED_STATE injecté en fin de fichier)
 function seedFromEmbedded(){
@@ -2031,15 +2177,29 @@ function fbSubscribe(){
     }
   }, err=>console.warn('snapshot', err));
 }
+// Indicateur visuel de synchronisation cloud (haut de page)
+function setSync(st){
+  let p=document.getElementById('syncPill');
+  if(!p){ const bar=document.querySelector('.topbar'); if(!bar) return;
+    p=document.createElement('span'); p.id='syncPill';
+    const badge=document.getElementById('lg-badge');
+    if(badge) bar.insertBefore(p,badge); else bar.appendChild(p); }
+  p.style.display='inline-flex';
+  if(!fbEnabled()){ p.className=''; p.innerHTML='<span class="dot"></span> Local'; return; }
+  if(st==='saving'){ p.className='saving'; p.innerHTML='<span class="dot"></span> Enregistrement…'; }
+  else { p.className='ok'; p.innerHTML='<span class="dot"></span> Synchronisé'; }
+}
 function fbPushState(){
   if(!fbEnabled() || !fbDocRef || !fbAuth || !fbAuth.currentUser || fbApplying) return;
   clearTimeout(fbSaveTimer);
+  setSync('saving');
   fbSaveTimer=setTimeout(()=>{
     fbDocRef.set({
       factures:state.factures, dossiers:state.dossiers,
       catalogue:state.catalogue||[], lignes:state.lignes||[], regles:state.regles||[],
       _updatedAt:Date.now(), _updatedBy:(lgCurrent()||{}).name||''
-    }).catch(()=>toast('Sync cloud échouée — réessai au prochain enregistrement','err'));
+    }).then(()=>setSync('synced'))
+      .catch(()=>toast('Sync cloud échouée — réessai au prochain enregistrement','err'));
   },700);
 }
 
@@ -2073,6 +2233,25 @@ function fbPushState(){
     else { if(g) g.style.display='flex'; if(pwd) pwd.focus(); }
   }
 })();
+
+/* ---------- Raccourcis clavier ---------- */
+document.addEventListener('keydown',function(e){
+  const t=e.target, tag=(t.tagName||'').toLowerCase();
+  const typing = tag==='input'||tag==='textarea'||tag==='select'||(t.isContentEditable);
+  if(e.key==='Escape'){
+    const ov=document.getElementById('overlay');
+    if(ov && ov.classList.contains('open')){ closeModal(); return; }
+    if(typeof closeMenu==='function') closeMenu();
+    return;
+  }
+  const gate=document.getElementById('loginGate');
+  if(gate && getComputedStyle(gate).display!=='none') return;   // pas de raccourci sur l'écran de login
+  if(typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  if(e.key==='/'){ e.preventDefault(); const s=document.getElementById('search'); if(s){ s.focus(); if(s.select) s.select(); } }
+  else if(e.key==='?'){ e.preventDefault(); openGuide(); }
+  else if(e.key.toLowerCase()==='n'){ e.preventDefault(); if(typeof openFacture==='function') openFacture(); }
+  else if('12345'.indexOf(e.key)>=0){ const v=['dashboard','factures','dossiers','controle','data']; if(typeof go==='function') go(v[+e.key-1]); }
+});
 </script>
 </body>
 </html>
