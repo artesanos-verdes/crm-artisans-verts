@@ -435,13 +435,13 @@ function load(){
   if(mem){ try{ return JSON.parse(mem); }catch(e){} }
   return null;
 }
+const uid = (p='id') => p + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-3);
 let state = load() || { factures:[], dossiers:[] };
 state.catalogue = state.catalogue || [];   // référentiel tarifaire (prix convenus, remises)
 state.lignes    = state.lignes    || [];   // lignes de facture à contrôler
 state.regles    = state.regles    || defaultRegles(); // mots-clés de lignes facturées à tort
 
 /* ---------- helpers ---------- */
-const uid = (p='id') => p + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-3);
 const eur = new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2});
 const eur0 = new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const fmt = v => eur.format(v||0);
