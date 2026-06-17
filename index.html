@@ -418,6 +418,13 @@ html{scroll-behavior:smooth}
 .scan-hint b{color:var(--brand)} .scan-hint .muted{color:var(--ink-faint)}
 #scanBtn{background:var(--brand-tint);border-color:var(--brand-tint);color:var(--brand);font-weight:600}
 #scanBtn:hover{background:#dce8dc}
+/* Onglet Dossiers : tableau compact + recherche */
+.doss-search{margin-bottom:14px}
+.doss-search input{width:min(440px,100%);height:38px;padding:0 14px;border:1px solid var(--line-strong);border-radius:9px;font-size:14px;background:var(--surface)}
+.doss-search input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 3px var(--brand-tint)}
+.doss-table td{padding:11px 14px}
+.doss-table .dmuted{color:var(--ink-soft);font-weight:400;font-size:13px}
+.doss-table tbody tr{cursor:pointer}
 </style>
 
 <header>
@@ -1109,42 +1116,60 @@ function dossierCard(d){
     </div>
   </div>`;
 }
+let dossQuery='';
 function renderDossiers(){
   const el = document.getElementById('view-dossiers');
   if(!state.dossiers.length){
     el.innerHTML = `<div class="section-head"><h2>Dossiers</h2>
       <button class="btn primary" onclick="openDossier()">Nouveau dossier</button></div>` +
-      emptyState('Aucun dossier','Créez un dossier par chantier. Chaque facture rattachée alimente automatiquement sa marge.',
+      emptyState('Aucun dossier','Créez un dossier par chantier. Chaque facture rattachée à un dossier l’alimente.',
       `<button class="btn primary" onclick="openDossier()">Créer un dossier</button>`);
     return;
   }
+  const smap={}; state.dossiers.forEach(d=>smap[d.id]=dossierStats(d.id));   // stats calculées une fois
+  const q=dossQuery.trim().toLowerCase();
+  const match=d=> !q || (d.nom||'').toLowerCase().includes(q) || (d.client||'').toLowerCase().includes(q);
   const zonesPresent=[...new Set(state.dossiers.map(d=>d.zone||'Autres'))];
   const ordered = ZORDER.filter(z=>zonesPresent.includes(z)).concat(zonesPresent.filter(z=>!ZORDER.includes(z)).sort());
-  const chip=(z,lbl,ic,n)=>`<button class="zchip ${dossZone===z?'active':''} ${z?('zc-'+z):''}" onclick="setDossZone('${z}')">${ic} ${lbl}${n!=null?` <span class="zc-n">${n}</span>`:''}</button>`;
+  const chip=(z,lbl,ic,n)=>`<button class="zchip ${dossZone===z?'active':''}" onclick="setDossZone('${z}')">${ic} ${lbl}${n!=null?` <span class="zc-n">${n}</span>`:''}</button>`;
   let chips=chip('','Tous','📋',state.dossiers.length);
   ordered.forEach(z=>{ const m=ZMETA[z]||{ic:'📁',lbl:z}; chips+=chip(z,m.lbl.split(' — ')[0],m.ic,state.dossiers.filter(d=>(d.zone||'Autres')===z).length); });
 
   const zonesToShow = dossZone ? [dossZone] : ordered;
   let body='';
   zonesToShow.forEach(z=>{
-    const ds=state.dossiers.filter(d=>(d.zone||'Autres')===z);
+    let ds=state.dossiers.filter(d=>(d.zone||'Autres')===z && match(d));
     if(!ds.length) return;
-    let ca=0,ch=0,nf=0; ds.forEach(d=>{ const s=dossierStats(d.id); ca+=s.produits; ch+=s.charges; nf+=s.count; });
+    ds=ds.slice().sort((a,b)=>smap[b.id].charges-smap[a.id].charges);
+    let ca=0,ch=0,nf=0; ds.forEach(d=>{ const s=smap[d.id]; ca+=s.produits; ch+=s.charges; nf+=s.count; });
     const m=ZMETA[z]||{ic:'📁',lbl:z};
-    const cards=ds.slice().sort((a,b)=>dossierStats(b.id).charges-dossierStats(a.id).charges).map(dossierCard).join('');
+    const rows=ds.map(d=>{ const s=smap[d.id];
+      return `<tr class="clickable" onclick="viewDossierFactures('${d.id}')">
+        <td class="cell-strong">${esc(d.nom)}${d.client&&d.client!==d.nom?` <span class="dmuted">· ${esc(d.client)}</span>`:''}</td>
+        <td>${d.statut?`<span class="tag">${esc(d.statut)}</span>`:''}</td>
+        <td class="r num">${s.count}</td>
+        <td class="r num">${fmtK(s.charges)}</td>
+        <td class="r num">${s.produits?fmtK(s.produits):'<span style="color:var(--ink-faint)">—</span>'}</td>
+        <td class="r"><button class="btn sm ghost" onclick="event.stopPropagation();openDossier('${d.id}')" title="Modifier">✎</button></td>
+      </tr>`;}).join('');
     body+=`<div class="zsec">
       <div class="zsec-head zh-${esc(z)}">
         <div class="zsec-title">${m.ic} <b>${esc(m.lbl)}</b> <span class="zsec-count">${ds.length} dossier${ds.length>1?'s':''} · ${nf} factures</span></div>
         <div class="zsec-sum">Achats <b>${fmtK(ch)}</b>${ca>0?` · Ventes <b>${fmtK(ca)}</b>`:''}</div>
       </div>
-      <div class="doss-grid">${cards}</div>
+      <div class="table-wrap"><div class="tscroll"><table class="doss-table">
+        <thead><tr><th>Dossier</th><th>Statut</th><th class="r">Factures</th><th class="r">Achats HT</th><th class="r">Ventes HT</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>
     </div>`;
   });
+  if(!body) body=`<p style="color:var(--ink-soft);padding:18px">Aucun dossier ne correspond à « ${esc(dossQuery)} ».</p>`;
   el.innerHTML = `<div class="section-head"><h2>Dossiers <span class="meta">— par activité</span></h2>
     <button class="btn primary" onclick="openDossier()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       Nouveau dossier</button></div>
+    <div class="doss-search"><input id="dossSearch" placeholder="🔍 Rechercher un dossier ou un client…" value="${esc(dossQuery)}" oninput="dossQuery=this.value;renderDossiers()"></div>
     <div class="zfilter">${chips}</div>${body}`;
+  const si=document.getElementById('dossSearch'); if(si && dossQuery){ si.focus(); si.setSelectionRange(si.value.length,si.value.length); }
 }
 
 function viewDossierFactures(id){ go('factures'); clearFilters(); setFilter('dossier',id); }
