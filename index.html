@@ -431,6 +431,69 @@ html{scroll-behavior:smooth}
 .doss-table tbody tr:nth-child(even){background:var(--surface-2)}
 .doss-table tbody tr:hover{background:var(--brand-tint)}
 .doss-table tbody tr:hover .dmuted{color:var(--brand-2)}
+/* ============================================================
+   PASSE UX GLOBALE (revue ergonomique multi-angles) — fluidité, lisibilité, ergonomie
+   ============================================================ */
+/* [1] Rythme vertical cohérent + chiffres mono tabulaires sur toutes les colonnes alignées */
+.section-head{margin-bottom:20px} .filters{margin-bottom:20px} .zfilter{margin-bottom:20px} .doss-search{margin-bottom:20px}
+h1,h2,h3{line-height:1.2}
+.panel-body>*+*{margin-top:12px}
+td.r,th.r{font-variant-numeric:tabular-nums;font-feature-settings:'tnum'}
+tbody td.r{font-family:'IBM Plex Mono',ui-monospace,monospace}
+/* [2] Densité de tableau unifiée (Contrôle & Tableau de bord rattrapent Factures) */
+tbody td{padding:12px 16px}
+thead th{padding:13px 16px;font-size:12px;letter-spacing:.6px;font-weight:700}
+#view-controle table,#view-dashboard table{font-size:14px}
+#view-controle tbody td,#view-dashboard tbody td{padding:14px 16px}
+#view-controle thead th,#view-dashboard thead th{padding:13px 16px}
+#view-controle .cell-strong{font-size:15px;font-weight:600}
+/* [3] Contraste WCAG AA */
+:root{--ink-faint:#888780}
+.st-attente{color:#8B5D1A} .st-attente .dot{background:#8B5D1A}
+.search input::placeholder,.doss-search input::placeholder{color:var(--ink-soft)}
+/* [4] KPIs + hiérarchie des titres */
+.kpi{padding:18px 20px}
+.kpi .label{font-size:12px;letter-spacing:.3px}
+.kpi .val{font-size:30px;line-height:1.1;letter-spacing:-1px;margin-top:10px}
+.kpi .hint{margin-top:6px}
+.section-head h2{font-size:20px;font-weight:700}
+.section-head .meta{font-size:14px;font-weight:500}
+.panel-head h3{font-size:15px;font-weight:700;line-height:1.25}
+/* [5] Lignes cliquables (feedback doux) + sévérité des anomalies (Contrôle) */
+tbody tr.clickable{transition:background .12s}
+tbody tr.clickable:hover{background:var(--surface-2)}
+#view-controle tbody tr{border-left:3px solid transparent}
+#view-controle tbody tr:has(.st-retard){border-left-color:var(--red);background:rgba(168,57,43,.03)}
+#view-controle tbody tr:has(.st-attente){border-left-color:var(--gold);background:rgba(168,118,31,.03)}
+/* [6] Toasts ✓/✕ explicites + actions de ligne toujours visibles */
+.row-actions{opacity:.4} tr:hover .row-actions{opacity:1}
+.toast::before{content:'';width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.22);display:inline-grid;place-items:center;font-size:11px;flex-shrink:0}
+.toast.ok::before{content:'✓'} .toast.err::before{content:'✕'}
+/* [7] Responsive : indice de scroll horizontal + densité mobile */
+.tscroll{-webkit-overflow-scrolling:touch;box-shadow:inset -18px 0 12px -12px rgba(27,28,24,.07)}
+@media(max-width:480px){ table{font-size:13px} tbody td{padding:9px 11px} #view-controle tbody td,#view-dashboard tbody td{padding:10px 11px} }
+/* [8] Responsive KPIs + cibles tactiles */
+@media(max-width:480px){ .kpis{gap:10px} .kpi{padding:14px 16px} .kpi .val{font-size:22px} }
+@media(max-width:600px){ .row-actions{opacity:1;gap:6px} .row-actions button{width:34px;height:34px} .btn.sm{height:34px} .tab{padding:12px 14px;min-height:44px} }
+/* [10] Modales : contenu scrollable + champs confortables */
+.modal-body{max-height:68vh;overflow-y:auto;overscroll-behavior:contain}
+.field label{margin-bottom:8px;letter-spacing:.25px}
+.form-grid{gap:16px}
+.field input,.field select{height:40px}
+.field input:focus,.field select:focus,.field textarea:focus{box-shadow:0 0 0 3px var(--brand-tint),inset 0 0 0 1px var(--brand-2)}
+/* [11] En-têtes de tableau : triabilité évidente */
+thead th .arr{opacity:.55}
+thead th:hover{background:#EFEDE5}
+thead th.no-sort:hover{background:var(--surface-2)}
+/* [12] États vides soignés */
+.empty{padding:64px 24px;animation:emptyFade .3s ease}
+@keyframes emptyFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.empty .ic{animation:emptyIc .45s ease .15s backwards}
+@keyframes emptyIc{0%{transform:scale(.85);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+/* [14] Micro-interactions discrètes */
+.btn.primary{box-shadow:0 1px 3px rgba(35,78,44,.12)}
+.btn.primary:active{box-shadow:0 1px 2px rgba(35,78,44,.1)}
+.tab{transition:color .15s,border-color .15s}
 </style>
 
 <header>
