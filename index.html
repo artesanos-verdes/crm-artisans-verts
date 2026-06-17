@@ -395,6 +395,18 @@ html{scroll-behavior:smooth}
 .grp-row td{background:var(--surface-2);font-size:13px;padding:9px 14px;border-top:2px solid var(--line-strong)}
 .grp-row .grp-ic{font-size:15px} .grp-row b{font-size:14px;margin-left:5px} .grp-row .grp-n{color:var(--ink-soft);font-weight:500;margin-left:9px} .grp-row .grp-sum{float:right;color:var(--ink);font-weight:700;font-family:'IBM Plex Mono',monospace}
 .grp-row.zh-ITE td{box-shadow:inset 4px 0 0 var(--gold)} .grp-row.zh-AGRI td{box-shadow:inset 4px 0 0 var(--brand)} .grp-row.zh-AMPLEUR td{box-shadow:inset 4px 0 0 #2a5a8f} .grp-row.zh-LED td{box-shadow:inset 4px 0 0 #6b3fa0}
+/* ====== Onglet Factures : affichage plus aéré et lisible ====== */
+#view-factures table{font-size:14.5px}
+#view-factures tbody td{padding:15px 16px;font-size:14.5px}
+#view-factures thead th{padding:13px 16px}
+#view-factures .cell-strong{font-size:15px;font-weight:600}
+#view-factures .cell-ref{font-size:13.5px}
+#view-factures .tag{font-size:12px;padding:3px 9px}
+#view-factures .type-pill{font-size:11.5px;padding:3px 9px}
+#view-factures .tiers-dot{width:9px;height:9px;margin-right:8px}
+#view-factures .grp-row td{font-size:14.5px;padding:13px 16px}
+#view-factures .zfilter .zchip{height:37px;font-size:14px;padding:0 16px}
+#view-factures .filters select,#view-factures .filters input{height:37px;font-size:14px}
 </style>
 
 <header>
@@ -644,10 +656,10 @@ function renderDashboard(){
     return;
   }
   const g = globalStats();
-  const dossById = state.dossiers.map(d=>({d, st:dossierStats(d.id)}))
-    .filter(x=>x.st.count>0 || x.st.produits>0)
-    .sort((a,b)=>b.st.marge-a.st.marge);
-  const maxAbs = Math.max(1, ...dossById.map(x=>Math.abs(x.st.marge)));
+  const dossByCh = state.dossiers.map(d=>({d, st:dossierStats(d.id)}))
+    .filter(x=>x.st.charges>0)
+    .sort((a,b)=>b.st.charges-a.st.charges);
+  const maxCh = Math.max(1, ...dossByCh.map(x=>x.st.charges));
 
   // top fournisseurs (achat) by HT
   const four = {};
@@ -667,7 +679,7 @@ function renderDashboard(){
     return `<button class="zstat zh-${z}" onclick="setFactZone('${z}')" title="Voir les factures ${esc(z)}">
       <div class="zstat-h">${m.ic} <b>${esc((m.lbl||z).split(' — ')[0])}</b> <span>${v.nf} fact.</span></div>
       <div class="zstat-mg">${fmtK(v.ch)}</div>
-      <div class="zstat-sub">charges · ${v.nd} dossier${v.nd>1?'s':''}${v.ca>0?` · marge <b class="${mg>=0?'pos':'neg'}">${fmtK(mg)}</b>`:''}</div>
+      <div class="zstat-sub">achats HT · ${v.nd} dossier${v.nd>1?'s':''}</div>
     </button>`;}).join('');
 
   el.innerHTML = `
@@ -675,15 +687,15 @@ function renderDashboard(){
       <div class="meta">${state.factures.length} factures · ${state.dossiers.length} dossiers</div></div>
 
     <div class="kpis">
-      <div class="kpi"><div class="label">Produits (CA HT)</div>
+      <div class="kpi"><div class="label">Achats (HT)</div>
+        <div class="val">${fmtK(g.charges)}</div>
+        <div class="hint"><b>${state.factures.filter(f=>f.type!=='vente').length}</b> factures fournisseur</div></div>
+      <div class="kpi"><div class="label">Ventes (HT)</div>
         <div class="val brand">${fmtK(g.produits)}</div>
-        <div class="hint">Charges&nbsp;: <b>${fmtK(g.charges)}</b></div></div>
-      <div class="kpi"><div class="label">Marge nette</div>
-        <div class="val ${g.marge>=0?'pos':'neg'}">${fmtK(g.marge)}</div>
-        <div class="hint">Taux&nbsp;: <b>${pct(g.tauxMarge)}</b></div></div>
+        <div class="hint"><b>${state.factures.filter(f=>f.type==='vente').length}</b> factures de vente</div></div>
       <div class="kpi"><div class="label">À décaisser (impayé)</div>
         <div class="val">${fmtK(g.impayeMontant)}</div>
-        <div class="hint"><b>${g.impayeCount}</b> facture${g.impayeCount>1?'s':''} fournisseur</div></div>
+        <div class="hint"><b>${g.impayeCount}</b> facture${g.impayeCount>1?'s':''} à payer</div></div>
       <div class="kpi"><div class="label">Échéances ≤ 30 j</div>
         <div class="val ${g.ech30>0?'neg':''}">${fmtK(g.ech30)}</div>
         <div class="hint"><b>${g.ech30Count}</b> à régler bientôt</div></div>
@@ -696,16 +708,16 @@ function renderDashboard(){
 
     <div class="grid-2">
       <div class="panel">
-        <div class="panel-head"><h3>Marge par dossier</h3><span class="small">Produits − charges (HT)</span></div>
+        <div class="panel-head"><h3>Top dossiers</h3><span class="small">Achats HT cumulés</span></div>
         <div class="panel-body">
-          ${dossById.length ? `<div class="bars">${dossById.slice(0,9).map(x=>{
-            const w = Math.round(Math.abs(x.st.marge)/maxAbs*100);
+          ${dossByCh.length ? `<div class="bars">${dossByCh.slice(0,9).map(x=>{
+            const w = Math.round(x.st.charges/maxCh*100);
             return `<div class="bar-row">
               <div class="nm" title="${esc(x.d.nom)}">${esc(x.d.nom)}</div>
-              <div class="bar-track"><div class="bar-fill ${x.st.marge<0?'neg':''}" style="width:${w}%"></div></div>
-              <div class="v" style="color:${x.st.marge<0?'var(--neg)':'var(--pos)'}">${fmtK(x.st.marge)}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${w}%"></div></div>
+              <div class="v">${fmtK(x.st.charges)}</div>
             </div>`;}).join('')}</div>`
-          : `<p style="color:var(--ink-soft);font-size:13px">Aucun dossier avec mouvement. Rattachez vos factures à un dossier pour suivre les marges.</p>`}
+          : `<p style="color:var(--ink-soft);font-size:13px">Aucune facture rattachée à un dossier.</p>`}
         </div>
       </div>
 
@@ -1029,7 +1041,6 @@ let dossSearch='';
 function setDossZone(z){ dossZone=z; renderDossiers(); }
 function dossierCard(d){
   const st=dossierStats(d.id);
-  const w = st.produits>0 ? Math.max(0,Math.min(100, Math.round(st.marge/st.produits*100))) : 0;
   return `<div class="doss-card">
     <div class="doss-top" style="cursor:pointer" onclick="openDossier('${d.id}')">
       <div class="nm">${esc(d.nom)}</div>
@@ -1041,13 +1052,12 @@ function dossierCard(d){
       </div>
     </div>
     <div class="doss-fin">
-      <div class="fin-cell"><div class="l">Produits</div><div class="n">${fmtK(st.produits)}</div></div>
-      <div class="fin-cell"><div class="l">Charges</div><div class="n">${fmtK(st.charges)}</div></div>
-      <div class="fin-cell"><div class="l">Marge</div><div class="n ${st.marge>=0?'pos':'neg'}">${fmtK(st.marge)}</div></div>
+      <div class="fin-cell"><div class="l">Factures</div><div class="n">${st.count}</div></div>
+      <div class="fin-cell"><div class="l">Achats HT</div><div class="n">${fmtK(st.charges)}</div></div>
+      <div class="fin-cell"><div class="l">Ventes HT</div><div class="n">${fmtK(st.produits)}</div></div>
     </div>
-    <div class="marge-bar"><div class="f" style="width:${w}%;background:${st.marge>=0?'var(--pos)':'var(--neg)'}"></div></div>
     <div class="doss-foot">
-      <span class="cnt">${st.count} facture${st.count>1?'s':''} · marge ${pct(st.tauxMarge)}</span>
+      <span class="cnt">${st.count} facture${st.count>1?'s':''}</span>
       <button class="btn sm ghost" onclick="viewDossierFactures('${d.id}')">Voir les factures →</button>
     </div>
   </div>`;
@@ -1072,13 +1082,13 @@ function renderDossiers(){
   zonesToShow.forEach(z=>{
     const ds=state.dossiers.filter(d=>(d.zone||'Autres')===z);
     if(!ds.length) return;
-    let ca=0,ch=0; ds.forEach(d=>{ const s=dossierStats(d.id); ca+=s.produits; ch+=s.charges; });
-    const mg=ca-ch, m=ZMETA[z]||{ic:'📁',lbl:z};
-    const cards=ds.slice().sort((a,b)=>dossierStats(b.id).marge-dossierStats(a.id).marge).map(dossierCard).join('');
+    let ca=0,ch=0,nf=0; ds.forEach(d=>{ const s=dossierStats(d.id); ca+=s.produits; ch+=s.charges; nf+=s.count; });
+    const m=ZMETA[z]||{ic:'📁',lbl:z};
+    const cards=ds.slice().sort((a,b)=>dossierStats(b.id).charges-dossierStats(a.id).charges).map(dossierCard).join('');
     body+=`<div class="zsec">
       <div class="zsec-head zh-${esc(z)}">
-        <div class="zsec-title">${m.ic} <b>${esc(m.lbl)}</b> <span class="zsec-count">${ds.length} dossier${ds.length>1?'s':''}</span></div>
-        <div class="zsec-sum">CA <b>${fmtK(ca)}</b> · Charges <b>${fmtK(ch)}</b> · Marge <b class="${mg>=0?'pos':'neg'}">${fmtK(mg)}</b></div>
+        <div class="zsec-title">${m.ic} <b>${esc(m.lbl)}</b> <span class="zsec-count">${ds.length} dossier${ds.length>1?'s':''} · ${nf} factures</span></div>
+        <div class="zsec-sum">Achats <b>${fmtK(ch)}</b>${ca>0?` · Ventes <b>${fmtK(ca)}</b>`:''}</div>
       </div>
       <div class="doss-grid">${cards}</div>
     </div>`;
