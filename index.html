@@ -2138,12 +2138,38 @@ function scanFacture(){
 }
 
 let aiBusy=false, aiHist=[];
+let aiPendingFile=null;
+function aiAttach(){
+  const i=document.createElement('input'); i.type='file'; i.accept='image/*,application/pdf';
+  i.onchange=e=>{ const f=e.target.files[0]; if(!f) return; if(f.size>9*1024*1024){ aiPush('error','Fichier trop lourd (max ~9 Mo).'); return; } aiPendingFile=f; aiRenderAttach(); const ta=document.getElementById('ai-input'); if(ta) ta.focus(); };
+  i.click();
+}
+function aiClearAttach(){ aiPendingFile=null; aiRenderAttach(); }
+function aiRenderAttach(){
+  const c=document.getElementById('ai-attach'); if(!c) return;
+  if(aiPendingFile){ c.style.display='flex'; c.innerHTML=`<span class="ai-attach-chip">📎 ${esc(aiPendingFile.name)} <button onclick="aiClearAttach()" title="Retirer">✕</button></span>`; }
+  else { c.style.display='none'; c.innerHTML=''; }
+}
 async function aiSend(){
   if(aiBusy) return;
-  const ta=document.getElementById('ai-input'); const q=(ta.value||'').trim(); if(!q) return;
-  ta.value=''; ta.style.height='auto'; aiPush('user', q); aiBusy=true; aiTyping(true);
-  const userMsg='[État actuel du CRM]\n'+JSON.stringify(aiSnapshot())+'\n\n[Demande de l\'utilisateur]\n'+q;
-  const messages=[...aiHist, {role:'user', content:userMsg}];
+  const ta=document.getElementById('ai-input'); const q=(ta.value||'').trim();
+  const file=aiPendingFile;
+  if(!q && !file) return;
+  ta.value=''; ta.style.height='auto';
+  aiPush('user', (file?('📎 '+file.name+(q?'\n':'')):'')+q);
+  aiClearAttach(); aiBusy=true; aiTyping(true);
+  const snap='[État actuel du CRM]\n'+JSON.stringify(aiSnapshot());
+  const ask=q || (file?'Voici une facture (image ou PDF). Lis-la et crée la facture correspondante dans le CRM avec l\'action creer_facture (extrais le tiers, la référence, la date, le HT, la TVA et le TTC).':'');
+  const userText=snap+'\n\n[Demande de l\'utilisateur]\n'+ask;
+  let content=userText;
+  if(file){
+    try{
+      const r=await readFileForAI(file);
+      const block = r.kind==='pdf' ? {type:'document',source:{type:'base64',media_type:'application/pdf',data:r.data}} : {type:'image',source:{type:'base64',media_type:r.mime,data:r.data}};
+      content=[block,{type:'text',text:userText}];
+    }catch(e){ aiTyping(false); aiBusy=false; aiPush('error','Lecture du fichier impossible : '+((e&&e.message)||e)); return; }
+  }
+  const messages=[...aiHist, {role:'user', content}];
   try{
     const raw=await aiCall(messages);
     let parsed=null;
@@ -2152,7 +2178,7 @@ async function aiSend(){
     if(parsed && typeof parsed==='object'){ reply=parsed.reply||''; actions=Array.isArray(parsed.actions)?parsed.actions:[]; }
     else { reply=raw; }
     const log=aiApply(actions);
-    aiHist.push({role:'user',content:userMsg}); aiHist.push({role:'assistant',content:raw});
+    aiHist.push({role:'user',content:userText+(file?' [facture jointe analysée]':'')}); aiHist.push({role:'assistant',content:raw});
     if(aiHist.length>16) aiHist=aiHist.slice(-16);
     aiTyping(false); aiBusy=false;
     aiPush('assistant', reply || (log.length?'C\'est fait.':'(réponse vide)'));
@@ -2225,7 +2251,12 @@ function buildAssistant(){
   .ai-foot textarea{flex:1;resize:none;height:38px;max-height:120px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:10px;outline:none;font-family:inherit;font-size:13.5px;line-height:1.4}
   .ai-foot textarea:focus{border-color:var(--brand)}
   .ai-send{width:38px;height:38px;border-radius:10px;border:none;background:var(--brand);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-  .ai-send:hover{background:var(--brand-strong,#1b3a22)}`;
+  .ai-send:hover{background:var(--brand-strong,#1b3a22)}
+  .ai-attach{padding:0 10px 8px;gap:6px;align-items:center}
+  .ai-attach-chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;background:var(--brand-tint);color:var(--brand);border-radius:8px;padding:5px 10px;max-width:100%}
+  .ai-attach-chip button{border:none;background:none;color:var(--brand);cursor:pointer;font-size:13px;padding:0}
+  .ai-attach-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);cursor:pointer;flex-shrink:0;font-size:16px}
+  .ai-attach-btn:hover{background:var(--surface-2)}`;
   const style=document.createElement('style'); style.id='ai-style'; style.textContent=css; document.head.appendChild(style);
 
   const cfg=aiCfg();
@@ -2258,8 +2289,10 @@ function buildAssistant(){
         </div>
       </div>
     </div>
+    <div class="ai-attach" id="ai-attach" style="display:none"></div>
     <div class="ai-foot">
-      <textarea id="ai-input" placeholder="Demande une action…" rows="1"></textarea>
+      <button class="ai-attach-btn" onclick="aiAttach()" title="Joindre une facture (photo / PDF)">📎</button>
+      <textarea id="ai-input" placeholder="Demande une action, ou joins une facture 📎…" rows="1"></textarea>
       <button class="ai-send" onclick="aiSend()" title="Envoyer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
   </div>`;
