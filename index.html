@@ -531,6 +531,7 @@ thead th.no-sort:hover{background:var(--surface-2)}
         </button>
         <div class="menu" id="mainMenu">
           <button onclick="openGuide()">📖 Guide d'utilisation</button>
+          <button onclick="openSuggest()">💡 Suggérer une amélioration</button>
           <div class="sep"></div>
           <button onclick="exportJSON()">💾 Exporter la sauvegarde (JSON)</button>
           <button onclick="document.getElementById('jsonIn').click()">📂 Restaurer une sauvegarde</button>
@@ -1578,6 +1579,94 @@ function ensureDatalists(){
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
 
 /* ============================================================
+   Suggérer une amélioration → génère un prompt prêt à coller dans Claude Code
+   ============================================================ */
+function openSuggest(){
+  if(typeof closeMenu==='function') closeMenu();
+  const m=document.getElementById('modal');
+  m.className='modal wide';
+  m.innerHTML=`
+    <div class="modal-head">
+      <h3>💡 Suggérer une amélioration</h3>
+      <button class="x" onclick="closeModal()" aria-label="Fermer">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--ink-soft);font-size:13.5px;margin:0 0 14px">Décris ton idée : l'app prépare un <b>prompt précis, prêt à coller dans Claude Code</b>. Tu pourras le copier puis le coller dans Claude Code (ouvert sur le projet) ou l'envoyer à Jonathan — l'amélioration sera développée puis déployée pour tout le monde.</p>
+      <div class="form-grid">
+        <div class="field"><label>Page concernée</label>
+          <select id="sg_page">
+            <option>Tableau de bord</option><option>Factures</option><option>Dossiers</option>
+            <option>Contrôle prix</option><option>Données</option><option>Assistant IA</option>
+            <option>Connexion / comptes</option><option>Général (toute l'app)</option>
+          </select></div>
+        <div class="field"><label>Type de demande</label>
+          <select id="sg_type">
+            <option>Nouvelle fonctionnalité</option><option>Amélioration d'affichage / ergonomie</option>
+            <option>Correction d'un problème</option><option>Autre</option>
+          </select></div>
+      </div>
+      <div class="field" style="margin-top:6px"><label>Décris l'amélioration souhaitée (le plus précis possible)</label>
+        <textarea id="sg_desc" rows="4" placeholder="Ex : Dans Factures, ajouter un bouton pour exporter en PDF la liste filtrée. — Ou : pouvoir cocher plusieurs factures et les marquer payées d'un coup."></textarea></div>
+      <div class="field"><label>Résultat attendu / exemple concret <span style="color:var(--ink-faint);font-weight:400">(optionnel)</span></label>
+        <textarea id="sg_ex" rows="2" placeholder="Ex : un bouton « Export PDF » à côté de la recherche ; le PDF reprend les colonnes du tableau."></textarea></div>
+      <div style="display:flex;gap:8px;margin-top:4px"><button class="btn primary" onclick="genSuggestPrompt()">Générer le prompt Claude Code</button></div>
+      <div id="sg_out" style="display:none;margin-top:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px">
+          <label style="font-weight:600">Prompt prêt à coller dans Claude Code</label>
+          <div style="display:flex;gap:8px">
+            <button class="btn sm" onclick="copySuggest()">📋 Copier</button>
+            <button class="btn sm" onclick="downloadSuggest()">⬇️ .txt</button>
+          </div>
+        </div>
+        <textarea id="sg_prompt" rows="15" readonly style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;line-height:1.55;background:var(--surface-2)"></textarea>
+        <p style="color:var(--ink-soft);font-size:12.5px;margin-top:8px">👉 Colle ce texte dans <b>Claude Code</b> (ouvert sur le dossier du CRM). Tu peux aussi l'envoyer à Jonathan.</p>
+      </div>
+    </div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+function genSuggestPrompt(){
+  const page=document.getElementById('sg_page').value;
+  const type=document.getElementById('sg_type').value;
+  const desc=(document.getElementById('sg_desc').value||'').trim();
+  const ex=(document.getElementById('sg_ex').value||'').trim();
+  const who=(typeof lgCurrent==='function' && lgCurrent())||{};
+  if(!desc){ toast('Décris d\'abord l\'amélioration souhaitée','err'); document.getElementById('sg_desc').focus(); return; }
+  const p=
+`Tu es Claude Code sur le projet « CRM Les Artisans Verts ».
+Fichier à modifier : extracted/crm-artisans-verts/index.html — single-file vanilla HTML/CSS/JS, aucune dépendance, aucun build. Lis CLAUDE.md avant toute chose.
+
+DEMANDE D'AMÉLIORATION
+- Page concernée : ${page}
+- Type : ${type}${who.name?`\n- Demandée par : ${who.name}`:''}
+
+Description :
+${desc}
+${ex?`\nRésultat attendu / exemple :\n${ex}\n`:''}
+CONTRAINTES À RESPECTER
+- Rester en single-file vanilla (pas de framework, pas d'étape de build, pas de dépendance surprise).
+- Les calculs d'argent restent déterministes et auditables (jamais l'IA pour produire un montant).
+- Conserver la cohérence visuelle : vert forêt #234E2C, papier chaud, police IBM Plex, lignes aérées.
+- Ne rien casser de l'existant (auth Firebase, synchro temps réel, import CSV, scanner de facture, contrôle des prix).
+- Valider la syntaxe JS, puis déployer (git push → GitHub Pages) et me montrer le résultat.
+
+Propose-moi ta solution, puis applique-la.`;
+  document.getElementById('sg_prompt').value=p;
+  document.getElementById('sg_out').style.display='block';
+  document.getElementById('sg_out').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function copySuggest(){
+  const t=document.getElementById('sg_prompt'); const txt=t.value; t.focus(); t.select();
+  const done=()=>toast('Prompt copié ✓ — colle-le dans Claude Code','ok');
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done,()=>{try{document.execCommand('copy');done();}catch(e){}}); }
+  else { try{document.execCommand('copy');done();}catch(e){} }
+}
+function downloadSuggest(){
+  const txt=document.getElementById('sg_prompt').value;
+  const blob=new Blob([txt],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='amelioration-crm-lav.txt'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ============================================================
    Guide d'utilisation intégré (pour Benjamin, Naomi & l'équipe)
    ============================================================ */
 function openGuide(){
@@ -1732,6 +1821,22 @@ function lineTotal(l){
 }
 
 // MOTEUR : renvoie la liste des anomalies
+/* ============================================================
+   Audit AXDIS — analyse de référence (réclamation des avoirs, 69 418,83 € HT)
+   3 catégories : A prix convenus non respectés (11 304 €), B vélos AXELE004 (52 495 €),
+   C remises omises climatisation/PAC/déshu. (5 619,83 €). Source : audit 146 factures / 200 lignes.
+   ============================================================ */
+const AXDIS_AUDIT = {"catalogue": [{"id": "cat_axdis_THALINEAIRE250W", "fournisseur": "AXDIS", "ref": "THALINEAIRE250W", "libelle": "High Bay Linéaire 250W — Linear Power", "puConvenu": 40, "remiseAttendue": 0}, {"id": "cat_axdis_THAHIGHBAY250", "fournisseur": "AXDIS", "ref": "THAHIGHBAY250", "libelle": "High Bay 250W IP65 — UFO Power", "puConvenu": 34, "remiseAttendue": 0}, {"id": "cat_axdis_IDCDAWESHBL250W", "fournisseur": "AXDIS", "ref": "IDCDAWESHBL250W", "libelle": "Kit LED 250W — UFO Power", "puConvenu": 34, "remiseAttendue": 0}, {"id": "cat_axdis_AXELE004", "fournisseur": "AXDIS", "ref": "AXELE004", "libelle": "Vélo électrique cargo AXELE004", "puConvenu": 368, "remiseAttendue": 0}, {"id": "cat_axdis_THARW240L", "fournisseur": "AXDIS", "ref": "THARW240L", "libelle": "Déshumidificateur industriel 8 L/h", "puConvenu": 970, "remiseAttendue": 0}, {"id": "cat_axdis_THAHP12M", "fournisseur": "AXDIS", "ref": "THAHP12M", "libelle": "PAC air-eau monobloc Mont-Blanc", "puConvenu": 2743.5, "remiseAttendue": 0}, {"id": "cat_axdis_THARW150L", "fournisseur": "AXDIS", "ref": "THARW150L", "libelle": "Déshumidificateur industriel 5 L/h", "puConvenu": 530, "remiseAttendue": 0}, {"id": "cat_axdis_DAI5MXM90A9", "fournisseur": "AXDIS", "ref": "DAI5MXM90A9", "libelle": "Unité ext. Multi 5 sorties 9 kW R32", "puConvenu": 2569.02, "remiseAttendue": 0}, {"id": "cat_axdis_DAI4MXM80A9", "fournisseur": "AXDIS", "ref": "DAI4MXM80A9", "libelle": "Unité ext. Multi 4 sorties 8 kW R32", "puConvenu": 2349.06, "remiseAttendue": 0}, {"id": "cat_axdis_THA986115", "fournisseur": "AXDIS", "ref": "THA986115", "libelle": "Thaleos Performer III 200L", "puConvenu": 1030, "remiseAttendue": 0}, {"id": "cat_axdis_DAIFTXM20R", "fournisseur": "AXDIS", "ref": "DAIFTXM20R", "libelle": "Mural Perfera 2 kW R32", "puConvenu": 279.65, "remiseAttendue": 0}, {"id": "cat_axdis_THM296519", "fournisseur": "AXDIS", "ref": "THM296519", "libelle": "Aeromax Split unité extérieure", "puConvenu": 330, "remiseAttendue": 0}, {"id": "cat_axdis_DAICTXM15R", "fournisseur": "AXDIS", "ref": "DAICTXM15R", "libelle": "Mural Perfera 1,5 kW R32", "puConvenu": 265.55, "remiseAttendue": 0}, {"id": "cat_axdis_DAIFTXM25R", "fournisseur": "AXDIS", "ref": "DAIFTXM25R", "libelle": "Mural Perfera 2,5 kW R32", "puConvenu": 289.52, "remiseAttendue": 0}, {"id": "cat_axdis_THA986114", "fournisseur": "AXDIS", "ref": "THA986114", "libelle": "Ballon thermodynamique Performer 2", "puConvenu": 1080, "remiseAttendue": 0}, {"id": "cat_axdis_THM296518", "fournisseur": "AXDIS", "ref": "THM296518", "libelle": "Aeromax Split 270 L", "puConvenu": 963, "remiseAttendue": 0}, {"id": "cat_axdis_PACALTFR114", "fournisseur": "AXDIS", "ref": "PACALTFR114", "libelle": "Soupape antigel 1\" laiton", "puConvenu": 63.9, "remiseAttendue": 0}, {"id": "cat_axdis_THM296517", "fournisseur": "AXDIS", "ref": "THM296517", "libelle": "Aeromax Split 200 L", "puConvenu": 985, "remiseAttendue": 0}], "lignes": [{"id": "lg_axdis_1", "fournisseur": "AXDIS", "facture": "Cumul période 12/25–02/26", "date": "", "ref": "THALINEAIRE250W", "libelle": "High Bay Linéaire 250W — Linear Power", "quantite": 1909, "puFacture": 44, "remiseAppliquee": 0, "totalHT": 83996}, {"id": "lg_axdis_2", "fournisseur": "AXDIS", "facture": "Cumul période (incl. 632127)", "date": "", "ref": "THAHIGHBAY250", "libelle": "High Bay 250W IP65 — UFO Power", "quantite": 509, "puFacture": 38, "remiseAppliquee": 0, "totalHT": 19342}, {"id": "lg_axdis_3", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "IDCDAWESHBL250W", "libelle": "Kit LED 250W — UFO Power", "quantite": 408, "puFacture": 38, "remiseAppliquee": 0, "totalHT": 15504}, {"id": "lg_axdis_4", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "AXELE004", "libelle": "Vélo électrique cargo AXELE004", "quantite": 2223, "puFacture": 385, "remiseAppliquee": 0, "totalHT": 855855}, {"id": "lg_axdis_5", "fournisseur": "AXDIS", "facture": "648636 (erreur de saisie)", "date": "", "ref": "AXELE004", "libelle": "Vélo électrique cargo AXELE004", "quantite": 32, "puFacture": 827.5, "remiseAppliquee": 0, "totalHT": 26480.0}, {"id": "lg_axdis_6", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THARW240L", "libelle": "Déshumidificateur industriel 8 L/h", "quantite": 26, "puFacture": 1050, "remiseAppliquee": 0, "totalHT": 27300}, {"id": "lg_axdis_7", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THARW240L", "libelle": "Déshumidificateur industriel 8 L/h", "quantite": 4, "puFacture": 980, "remiseAppliquee": 0, "totalHT": 3920}, {"id": "lg_axdis_8", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THAHP12M", "libelle": "PAC air-eau monobloc Mont-Blanc", "quantite": 4, "puFacture": 2945, "remiseAppliquee": 0, "totalHT": 11780}, {"id": "lg_axdis_9", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THARW150L", "libelle": "Déshumidificateur industriel 5 L/h", "quantite": 23, "puFacture": 560, "remiseAppliquee": 0, "totalHT": 12880}, {"id": "lg_axdis_10", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "DAI5MXM90A9", "libelle": "Unité ext. Multi 5 sorties 9 kW R32", "quantite": 1, "puFacture": 3087.9, "remiseAppliquee": 0, "totalHT": 3087.9}, {"id": "lg_axdis_11", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "DAI4MXM80A9", "libelle": "Unité ext. Multi 4 sorties 8 kW R32", "quantite": 1, "puFacture": 2824.7, "remiseAppliquee": 0, "totalHT": 2824.7}, {"id": "lg_axdis_12", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THA986115", "libelle": "Thaleos Performer III 200L", "quantite": 4, "puFacture": 1080, "remiseAppliquee": 0, "totalHT": 4320}, {"id": "lg_axdis_13", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "DAIFTXM20R", "libelle": "Mural Perfera 2 kW R32", "quantite": 3, "puFacture": 338.4, "remiseAppliquee": 0, "totalHT": 1015.2}, {"id": "lg_axdis_14", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THM296519", "libelle": "Aeromax Split unité extérieure", "quantite": 2, "puFacture": 360, "remiseAppliquee": 0, "totalHT": 720}, {"id": "lg_axdis_15", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THM296519", "libelle": "Aeromax Split unité extérieure", "quantite": 1, "puFacture": 415, "remiseAppliquee": 0, "totalHT": 415}, {"id": "lg_axdis_16", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "DAICTXM15R", "libelle": "Mural Perfera 1,5 kW R32", "quantite": 2, "puFacture": 329, "remiseAppliquee": 0, "totalHT": 658}, {"id": "lg_axdis_17", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "DAIFTXM25R", "libelle": "Mural Perfera 2,5 kW R32", "quantite": 2, "puFacture": 347.8, "remiseAppliquee": 0, "totalHT": 695.6}, {"id": "lg_axdis_18", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THA986114", "libelle": "Ballon thermodynamique Performer 2", "quantite": 1, "puFacture": 1180, "remiseAppliquee": 0, "totalHT": 1180}, {"id": "lg_axdis_19", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THM296518", "libelle": "Aeromax Split 270 L", "quantite": 1, "puFacture": 1060, "remiseAppliquee": 0, "totalHT": 1060}, {"id": "lg_axdis_20", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "PACALTFR114", "libelle": "Soupape antigel 1\" laiton", "quantite": 6, "puFacture": 68.5, "remiseAppliquee": 0, "totalHT": 411.0}, {"id": "lg_axdis_21", "fournisseur": "AXDIS", "facture": "Cumul période", "date": "", "ref": "THM296517", "libelle": "Aeromax Split 200 L", "quantite": 1, "puFacture": 1005, "remiseAppliquee": 0, "totalHT": 1005}]};
+function loadAxdisAudit(){
+  if(typeof closeMenu==='function') closeMenu();
+  const n=(state.lignes||[]).filter(l=>String(l.id).startsWith('lg_axdis_')).length;
+  if(n && !confirm('L\'audit AXDIS est déjà chargé. Le recharger (remet les '+AXDIS_AUDIT.lignes.length+' lignes de référence à zéro) ?')) return;
+  state.catalogue=(state.catalogue||[]).filter(c=>!String(c.id).startsWith('cat_axdis_')).concat(AXDIS_AUDIT.catalogue.map(c=>({...c})));
+  state.lignes=(state.lignes||[]).filter(l=>!String(l.id).startsWith('lg_axdis_')).concat(AXDIS_AUDIT.lignes.map(l=>({...l})));
+  save(); cFilter={cat:'',four:'',sev:''}; renderAll(); go('controle');
+  toast('Audit AXDIS chargé — 21 lignes, 69 418,83 € HT à réclamer','ok');
+}
+
 function runControle(){
   const A=[]; const seen={};
   (state.lignes||[]).forEach(l=>{
@@ -1804,7 +1909,8 @@ function renderControle(anoms){
   const hasLignes=(state.lignes||[]).length>0;
 
   let html=`<div class="section-head"><h2>Contrôle des prix</h2>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="loadAxdisAudit()" title="Recharger l'analyse de référence AXDIS (réclamation des avoirs, 69 418,83 € HT)">📋 Audit AXDIS</button>
       <button class="btn" onclick="importLignes()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Importer des lignes</button>
       <button class="btn primary" onclick="genReclamations()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 4h16v12H5.2L4 17.2V4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg> Générer les réclamations</button>
     </div></div>
@@ -1813,9 +1919,10 @@ function renderControle(anoms){
 
   if(!hasLignes){
     html+=emptyState('Aucune ligne à contrôler',
-      'Importe les lignes de tes factures fournisseurs (AXDIS &amp; autres) et renseigne ton référentiel tarifaire. L\'agent détecte alors les écarts et chiffre le montant récupérable.',
-      `<button class="btn primary" onclick="importLignes()">Importer des lignes de facture</button>
-       <button class="btn" onclick="openCatalogueItem()">Ajouter une référence tarifaire</button>`);
+      'Recharge l\'analyse de référence AXDIS (réclamation des avoirs, <b>69 418,83 € HT</b>) en un clic, ou importe les lignes de tes factures fournisseurs et renseigne ton référentiel tarifaire.',
+      `<button class="btn primary" onclick="loadAxdisAudit()">📋 Charger l'audit AXDIS · 69 418 € à réclamer</button>
+       <button class="btn" onclick="importLignes()">Importer d'autres lignes</button>
+       <button class="btn" onclick="openCatalogueItem()">Ajouter une référence</button>`);
     el.innerHTML = html + referentielPanel() + reglesPanel();
     return;
   }
