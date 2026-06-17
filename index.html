@@ -786,8 +786,10 @@ function setFactZone(z){ fFilter.zone=z; go('factures'); }          // depuis le
 function zoneOf(f){ const d=state.dossiers.find(x=>x.id===f.dossierId); return d?(d.zone||''):''; }
 let factGroupBy='activite';   // 'activite' | 'fournisseur' | 'aucun'
 let factOpen={};              // groupes fournisseur dépliés (clic)
+let factFourSort='montant', factFourDir=-1;   // tri des fournisseurs : 'montant' | 'nom'
 function setFactGroupBy(g){ factGroupBy=g; renderFactures(); }
 function toggleFournisseur(el){ const k=el.getAttribute('data-four'); factOpen[k]=!factOpen[k]; renderFactures(); }
+function setFourSort(key){ if(factFourSort===key) factFourDir*=-1; else { factFourSort=key; factFourDir=(key==='nom'?1:-1); } renderFactures(); }
 
 function filteredFactures(){
   let arr = state.factures.slice();
@@ -854,6 +856,9 @@ function renderFactures(){
       <button class="zchip ${factGroupBy==='activite'?'active':''}" onclick="setFactGroupBy('activite')">🗂️ Par activité</button>
       <button class="zchip ${factGroupBy==='fournisseur'?'active':''}" onclick="setFactGroupBy('fournisseur')">🏢 Par fournisseur</button>
       <button class="zchip ${factGroupBy==='aucun'?'active':''}" onclick="setFactGroupBy('aucun')">📄 Liste</button>
+      ${factGroupBy==='fournisseur'?`<span class="zfilter-lbl" style="margin-left:14px">Trier&nbsp;:</span>
+        <button class="zchip ${factFourSort==='montant'?'active':''}" onclick="setFourSort('montant')">💶 Montant ${factFourSort==='montant'?(factFourDir<0?'↓':'↑'):''}</button>
+        <button class="zchip ${factFourSort==='nom'?'active':''}" onclick="setFourSort('nom')">🔤 Nom ${factFourSort==='nom'?(factFourDir>0?'A→Z':'Z→A'):''}</button>`:''}
     </div>
 
     <div class="filters">
@@ -931,7 +936,9 @@ function factRowsHTML(arr,zm){
   // --- groupé par FOURNISSEUR (replié, cliquable pour le détail) ---
   if(factGroupBy==='fournisseur'){
     const by={}; arr.forEach(f=>{ const k=f.tiers||'—'; (by[k]=by[k]||[]).push(f); });
-    const keys=Object.keys(by).sort((a,b)=>grpSum(by[b])-grpSum(by[a]));
+    const keys=Object.keys(by).sort((a,b)=> factFourSort==='nom'
+      ? a.localeCompare(b,'fr')*factFourDir
+      : (grpSum(by[a])-grpSum(by[b]))*factFourDir);
     return keys.map(k=>{
       const fs=by[k], tot=grpSum(fs), open=!!factOpen[k];
       const head=`<tr class="grp-row grp-four${open?' open':''}" data-four="${esc(k)}" onclick="toggleFournisseur(this)">
