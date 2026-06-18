@@ -1605,6 +1605,25 @@ function exportFacturesCSV(){
   dl('\uFEFF'+lines.join('\r\n'), `factures-artisans-verts-${todayISO()}.csv`,'text/csv;charset=utf-8');
   toast('Factures exportées','ok');
 }
+function exportAReglerCSV(){
+  if(!(state.aRegler||[]).length){ toast('Aucune facture à régler à exporter.','err'); return; }
+  const engLbl=e=>({LCR:'LCR',traite:'Traite','échéance':'Traite',factor:'Factor'}[e]||(e?e:'à régler'));
+  const head=['Fournisseur','Facture','Client / objet','Activité','TTC','Acompte','À devoir TTC','Engagement','Échéance'];
+  const esc2=c=>{ c=String(c==null?'':c); return /[;"\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c; };
+  const lines=[head.join(';')];
+  (state.aRegler||[]).slice().sort((a,b)=>(b.ad||0)-(a.ad||0)).forEach(r=>{
+    lines.push([r.t,r.n,r.cl,r.z, String(r.ttc||0).replace('.',','), r.ac?String(r.ac).replace('.',','):'', String(r.ad||0).replace('.',','), engLbl(r.e), r.ech||''].map(esc2).join(';'));
+  });
+  const s=arSummary();
+  lines.push('');
+  lines.push('Montant TTC brut;;;;;;'+String(s.brut).replace('.',','));
+  lines.push('Acomptes verses;;;;;;-'+String(s.ac).replace('.',','));
+  lines.push('A devoir TTC;;;;;;'+String(s.ad).replace('.',','));
+  lines.push('Engage LCR/traites/factor;;;;;;-'+String(s.eng).replace('.',','));
+  lines.push('Reste a regler sec;;;;;;'+String(s.sec).replace('.',','));
+  dl('﻿'+lines.join('\r\n'), `a-regler-artisans-verts-${todayISO()}.csv`,'text/csv;charset=utf-8');
+  toast('Échéancier exporté','ok');
+}
 function downloadTemplate(){
   closeMenu();
   const head='Date;Type;Tiers;Référence;Libellé;Dossier;Catégorie;HT;TVA%;TTC;Statut;Échéance';
@@ -1630,7 +1649,7 @@ document.getElementById('jsonIn').addEventListener('change',e=>{
       if(state.factures.length||state.dossiers.length){
         if(!confirm('Remplacer les données actuelles par cette sauvegarde ?')) return;
       }
-      state={factures:data.factures, dossiers:data.dossiers, catalogue:data.catalogue||[], lignes:data.lignes||[], regles:data.regles||defaultRegles()};
+      state={factures:data.factures, dossiers:data.dossiers, catalogue:data.catalogue||[], lignes:data.lignes||[], regles:data.regles||defaultRegles(), veilleIgnore:data.veilleIgnore||{}, aRegler:data.aRegler||[]};
       // re-normalize for safety
       state.factures=state.factures.map(normFacture);
       save(); go('dashboard'); toast('Sauvegarde restaurée','ok');
@@ -1660,7 +1679,7 @@ function ensureDatalists(){
     <datalist id="ficheList">${['RES020','RES022','RES060','RES061','TER040','TER100','BAR-TH-174','BAT-TH-126','BAT-TH-116','IND-BA-117','IND-BA-110','BAT-EQ-127'].map(c=>`<option value="${c}">`).join('')}</datalist>`;
   document.body.appendChild(wrap);
 }
-function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); if(typeof scanPendingLignes!=='undefined') scanPendingLignes=[]; }
 
 /* ============================================================
    Suggérer une amélioration → génère un prompt prêt à coller dans Claude Code
@@ -1968,7 +1987,7 @@ function renderARegler(){
     return;
   }
   const s=arSummary(rows);
-  let html='<div class="section-head"><h2>À régler — fournisseurs</h2><div class="meta">'+s.n+' factures · source « Factures à régler »</div></div>';
+  let html='<div class="section-head"><h2>À régler — fournisseurs</h2><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="meta">'+s.n+' factures · source « Factures à régler »</div><button class="btn sm" onclick="exportAReglerCSV()">⬇️ Exporter (CSV)</button></div></div>';
   html+='<div class="hint-row" style="background:var(--gold-tint);border-color:#E6D3A8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Échéancier fournisseurs : montants <b>nets des acomptes déjà versés</b>. Les <b>LCR / traites / factor</b> déjà engagés sont isolés ; le « reste à régler » est ce qui n\'est pas encore programmé.</div></div>';
   html+='<div class="ar-cascade">'
     +'<div class="cas-row"><span>Montant TTC brut <small>'+s.n+' factures</small></span><b>'+fmt(s.brut)+'</b></div>'
@@ -2179,7 +2198,11 @@ function updateBellFrom(anoms){
   const cur=alertsFrom(anoms); const seen=_seenSet();
   const fresh=cur.filter(a=>!seen.has(alertSig(a))).length;
   b.textContent=cur.length; b.style.display=cur.length?'':'none';
-  const btn=document.getElementById('bellBtn'); if(btn) btn.classList.toggle('has-alerts', fresh>0);
+  const btn=document.getElementById('bellBtn');
+  if(btn){ btn.classList.toggle('has-alerts', fresh>0);
+    const recl=cur.filter(a=>a.severite==='haute').length, ver=cur.filter(a=>a.severite==='moyenne').length;
+    btn.title = cur.length ? ('Alertes tarifaires : '+recl+' à réclamer · '+ver+' à vérifier'+(fresh?' ('+fresh+' nouveau'+(fresh>1?'x':'')+')':'')) : 'Alertes tarifaires';
+  }
 }
 function updateBell(){ updateBellFrom(runControle()); }
 function toastAction(msg,onClick){
@@ -3091,20 +3114,23 @@ function fbPushState(){
 let _appTag=null, _updateReady=false;
 async function checkUpdate(){
   if(_updateReady) return;
+  const ac=new AbortController(); const to=setTimeout(()=>ac.abort(),5000);
   try{
-    const r=await fetch('index.html?_v='+Date.now(), {cache:'no-store', method:'HEAD'});
+    const r=await fetch('index.html?_v='+Date.now(), {cache:'no-store', method:'HEAD', signal:ac.signal});
     if(!r.ok) return;
     const tag=r.headers.get('etag')||r.headers.get('last-modified');
     if(!tag) return;
     if(_appTag===null){ _appTag=tag; return; }   // 1re mesure = version courante
     if(tag!==_appTag){ _updateReady=true; onUpdateAvailable(); }
   }catch(e){}
+  finally{ clearTimeout(to); }
 }
 function _safeToReload(){
   const ov=document.getElementById('overlay'); if(ov && ov.classList.contains('open')) return false;   // modale ouverte
   const ae=document.activeElement; if(ae && /^(input|textarea|select)$/i.test(ae.tagName)) return false; // saisie en cours
   const ai=document.getElementById('ai-input'); if(ai && (ai.value||'').trim()) return false;            // message assistant en cours
-  if(typeof fbSaving!=='undefined' && fbSaving) return false;
+  if(typeof fbApplying!=='undefined' && fbApplying) return false;   // pas pendant une synchro Firestore
+  if(typeof aiBusy!=='undefined' && aiBusy) return false;           // pas pendant un appel IA / scan
   return true;
 }
 function onUpdateAvailable(){
