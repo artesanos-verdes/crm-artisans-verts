@@ -1,123 +1,102 @@
 # CLAUDE.md — CRM Les Artisans Verts
 
-> Ce fichier briefe Claude Code sur le projet. Lis-le en entier avant toute action.
+> Brief pour Claude Code. **Lis-le en entier avant toute action.** Il est à jour au 18/06/2026.
 
 ## Ce qu'est ce projet
 
-CRM de **comptabilité de gestion** pour **Les Artisans Verts** (Los Artesanos Verdes SL), société franco-espagnole de rénovation énergétique (CEE/CAE, isolation des combles, PAC). Le CRM suit les **factures** (achats fournisseurs / ventes au délégataire), la **marge par dossier/chantier**, et embarque un **agent de contrôle des prix** qui détecte les erreurs de facturation des fournisseurs et prestataires (méthode dite « AXDIS »).
+CRM de **gestion / facturation** pour **Les Artisans Verts** (Los Artesanos Verdes SL), société de rénovation énergétique (CEE/CAE : isolation, PAC, déshumidificateurs, LED industriel, vélos cargo). Suivi des **factures** (achats fournisseurs & ventes), du **détail par dossier/chantier et par activité**, un **agent de contrôle des prix** (méthode « AXDIS ») + une **veille tarifaire permanente**, et un **échéancier fournisseurs « à régler »**.
 
-Contexte métier utile :
-- Fiches CEE en cours : **RES022** (remplace RES020 pour l'isolation combles zones C/D/E, formule forfaitaire VAUZ), BAT-TH-126, BAT-TH-116, IND-BA-117, etc.
-- Partenaires : **GreenFlex** (délégataire), **Renovantis** (commercial, partage de marge 50/50), **AXDIS** (fournisseur matériel — c'est sur ses factures qu'a été menée l'analyse de référence : ~69 400 € HT d'écarts sur 146 factures / 200 lignes, en 3 familles : tarifs convenus non respectés, lignes facturées à tort « vélo cargo », remises Daikin/Thaleos non appliquées).
-- L'agent de contrôle reproduit exactement cette logique, en permanence.
+**EN LIGNE** : https://artesanos-verdes.github.io/crm-artisans-verts/ — **multi-postes**, 3 utilisateurs (Jonathan, Naomi, Benjamin), données **partagées en temps réel** (Firebase).
+
+Les 4 activités : **ITE** (isolation ext.), **AGRI** (déshumidificateurs), **AMPLEUR** (rénovation ANAH), **LED** (éclairage indus.). + catégorie **VELO** (vélos cargo AXDIS).
 
 ## Stack & principes (à respecter absolument)
 
-- **Fichier unique `index.html`** : tout le HTML + CSS + JS dans un seul fichier, **vanilla** (aucun framework, aucune dépendance, aucune étape de build).
-- **Persistance `localStorage`** (clé `lav_compta_v1`), avec repli en mémoire si indisponible.
-- **Déploiement GitHub Pages** (org `770lab`), site statique. Aucun backend requis pour le CRM lui-même.
-- **UI en français**, ton direct.
-- **Pas de framework, pas de bundler, pas de `node_modules`** sauf demande explicite. Si une évolution réclame vraiment un découpage multi-fichiers ou une base de données, **proposer d'abord**, ne pas l'imposer.
-- Palette : papier chaud, vert forêt `--brand:#234E2C`. Polices IBM Plex Sans / IBM Plex Mono (chargées via Google Fonts).
+- **Fichier unique `index.html`** : tout le HTML + CSS + JS, **vanilla** (aucun framework, aucun bundler, aucune étape de build). ~3150 lignes.
+- **Backend Firebase** (compat SDK via CDN gstatic) : **Auth** Email/Password + **Firestore** (1 doc `crm/state`, synchro `onSnapshot` temps réel). Repli **localStorage** + mémoire hors-ligne.
+- **Déploiement GitHub Pages** via **GitHub Actions** (`.github/workflows/pages.yml`), org **`artesanos-verdes`** (PAS 770lab). Site statique.
+- **UI en français**, ton direct. Palette : papier chaud `--bg:#F7F6F1`, vert forêt `--brand:#234E2C`, rouge `--red`, or `--gold`. Polices IBM Plex Sans / Mono.
+- **RÈGLE D'OR : les calculs d'argent restent DÉTERMINISTES et auditables.** L'IA pilote le CRM en langage naturel et **lit** les factures (vision OCR), mais **n'invente JAMAIS un montant**. Aucun chemin d'écriture IA vers un prix/plancher/écart.
+- Pas de dépendance surprise. Si une évolution réclame un découpage multi-fichiers ou une base différente, **proposer d'abord**.
 
-## Carte du dépôt
+## Vérifier AVANT chaque commit (obligatoire)
 
+```bash
+# La syntaxe JS de chaque bloc <script> doit passer (il y en a 3) :
+node -e "const fs=require('fs'),vm=require('vm');const h=fs.readFileSync('index.html','utf8');const re=/<script>([\s\S]*?)<\/script>/g;let m,i=0,ok=true;while((m=re.exec(h))){i++;try{vm.compileFunction(m[1]);}catch(e){ok=false;console.log('bloc '+i+' KO: '+e.message.split('\n')[0]);}}console.log(ok?i+' blocs JS OK':'KO');"
 ```
-crm-artisans-verts/
-├── index.html              ← LE CRM (tout est ici : ~1800 lignes)
-├── CLAUDE.md               ← ce fichier
-├── README.md               ← démarrage humain
-├── .gitignore
-├── proxy/                  ← proxy API optionnel (Cloudflare Worker) pour l'Assistant en prod
-│   ├── worker.js
-│   ├── wrangler.toml
-│   └── README.md
-├── exemples/               ← CSV de test pour le contrôle des prix
-│   ├── lignes-exemple.csv
-│   └── referentiel-exemple.csv
-└── .github/workflows/
-    └── pages.yml           ← déploiement GitHub Pages auto (optionnel)
-```
+Pour la logique financière (contrôle prix, veille, à régler, datasets), **extraire les fonctions pures et les tester avec `node`** sur des cas connus (ex. l'audit AXDIS doit toujours donner 69 418,83 €). Voir le dossier `../data/` (scripts de build) si présent.
 
-## Modèle de données (objet `state`, sérialisé en JSON)
+## Déploiement
+
+```bash
+git add -A && git commit -m "..." && git push origin main
+# GitHub Actions déploie automatiquement (~20-40 s). Vérifier :
+gh run list --repo artesanos-verdes/crm-artisans-verts --limit 1
+```
+Le repo distant est `github.com/artesanos-verdes/crm-artisans-verts`. L'**auto-rechargement** (voir plus bas) fait que les 3 postes prennent la nouvelle version sans Ctrl+Maj+R.
+
+## Modèle de données (objet `state`, sérialisé JSON = schéma Firestore)
 
 ```js
 state = {
   factures:  [ {id, type:'achat'|'vente', date, tiers, ref, libelle, dossierId,
                 categorie, ht, tva, ttc, statut:'paye'|'attente', echeance} ],
-  dossiers:  [ {id, nom, client, fiche, zone, statut:'En cours'|'Terminé'|'En attente'|'Annulé',
-                produits /* number ou '' */, notes} ],
-  catalogue: [ {id, fournisseur, ref, libelle, puConvenu, remiseAttendue /* % */} ],  // référentiel tarifaire
+  dossiers:  [ {id, nom, client, fiche, zone /* ITE|AGRI|AMPLEUR|LED */, statut, produits, notes} ],
+  catalogue: [ {id, fournisseur, ref, libelle, puConvenu, remiseAttendue /* % */} ],   // référentiel tarifaire
   lignes:    [ {id, fournisseur, facture, date, ref, libelle, quantite, puFacture,
-                remiseAppliquee /* % */, totalHT /* number ou '' */} ],               // lignes à contrôler
-  regles:    [ {id, motCle, type:'interdit', note} ]                                   // mots-clés "ligne indue"
+                remiseAppliquee, totalHT, source?:'ia', verifie?:false} ],             // lignes à contrôler (veille)
+  regles:    [ {id, motCle, type:'interdit', note} ],                                  // mots-clés "ligne indue"
+  veilleIgnore: { [stableKey]: {statut:'ignore', ts} },  // exceptions de veille (prix validés "normaux"), SYNCHRONISÉ
+  aRegler:   [ {t:tiers, n:num, ttc, ac:acompte, ad:àDevoir, e:engagement, ech, cl:client, z:activité} ]  // échéancier
 }
 ```
+Helpers clés : `uid(p)`, `parseNum(str)` (formats FR `1 234,56`), `round2(n)`, `normFacture(f)`, `save()` (→ localStorage + Firestore + veille), `load()`, `renderAll()`, `go(view)`, `toast(msg,type)`, `fmt`/`fmtK` (€), `esc`, `tierColor`. Vues (`go`) : `dashboard`, `factures`, `dossiers`, `controle`, `areregler`, `data`.
 
-Helpers globaux clés : `uid(prefix)`, `todayISO()`, `parseNum(str)` (formats FR : `1 234,56`), `round2(n)`, `normFacture(f)` (calcule ht/ttc/tva), `save()`, `load()`, `renderAll()`, `go(view)`, `toast(msg,type)`. Onglets (`view`) : `dashboard`, `factures`, `dossiers`, `controle`, `data`.
+## Les 6 onglets
 
-## Le moteur de contrôle des prix (déterministe — NE PAS remplacer par de l'IA)
+1. **Tableau de bord** (`renderDashboard`) — Achats HT / Ventes HT / **À régler fournisseurs** (si `aRegler` chargé) / Échéances + carte d'alerte veille + factures par activité + top fournisseurs.
+2. **Factures** (`renderFactures`) — toutes les factures, **groupées par activité ou par fournisseur** (tri montant/nom), filtres, recherche, ajout, **scan photo/PDF** (`scanFacture`), import/export CSV. Totaux affichés en bas.
+3. **Dossiers** (`renderDossiers`) — tableau par activité, colonnes triables (Achats/Ventes HT), recherche.
+4. **Contrôle prix** (`renderControle` / moteur `runControle`) — anomalies de facturation + **veille tarifaire** + bouton **📋 Audit AXDIS**. Génère les lettres de réclamation (`genReclamations`).
+5. **À régler** (`renderARegler`) — échéancier fournisseurs : **cascade** (brut − acomptes = à devoir − LCR/traites = reste « sec »), par activité/fournisseur, table filtrable.
+6. **Données** (`renderData`) — import CSV, sauvegarde/restauration JSON, + boutons d'intégration des datasets (LED, À régler).
 
-`runControle()` parcourt `state.lignes`, rapproche chaque ligne du `catalogue` (`matchCatalogue`) et renvoie des anomalies typées :
-- **Doublon** (vérifié en premier, la ligne entière est contestée, écart = total ; on ne cumule aucun autre écart sur une ligne en doublon).
-- **Ligne indue** : le libellé contient un mot-clé d'une règle `interdit` (ex. « vélo cargo ») → écart = total.
-- **Dépassement de tarif** / **Remise non appliquée** / **Tarif + remise** : comparaison du *prix net unitaire* facturé vs convenu (`puConvenu × (1 − remiseAttendue/100)`), écart = diff × quantité. Une seule ligne d'écart par anomalie (pas de double comptage).
-- **Hors catalogue** (à vérifier, 0 €), **Incohérence de calcul** (qté×PU−remise ≠ total, à vérifier).
+## Le moteur de contrôle des prix (déterministe — NE JAMAIS remplacer par de l'IA)
 
-Sévérité `haute` = récupérable (chiffré) ; `moyenne` = à vérifier. `controleSummary()` agrège récupérable / à vérifier / par motif / par fournisseur. `genReclamations()` produit une lettre LRAR déterministe par fournisseur (copiable / `.txt`).
+`runControle()` parcourt `state.lignes` (mémoïsé via `ctrlStamp`), rapproche du `catalogue` (`matchCatalogue`, par fournisseur+réf) et renvoie des anomalies typées : **Doublon** (vérifié en 1er) · **Ligne indue** (mot-clé règle) · **Dépassement / Remise non appliquée / Tarif+remise** (net unitaire facturé vs convenu) · **Hors catalogue** · **Incohérence de calcul**. Une seule ligne d'écart par anomalie (**zéro double comptage**). `controleSummary` agrège récupérable (`haute`) / à vérifier (`moyenne`).
 
-**Règle d'or : les calculs financiers restent déterministes.** L'IA sert à piloter le CRM en langage naturel, jamais à inventer des montants.
+### Veille tarifaire (déterministe, auto-apprenante)
+`buildReferentielAuto(lignes)` apprend, par (fournisseur, réf), le **plancher** = plus bas prix net réellement payé, **robuste** (rejette les valeurs < médiane×0,5 = avoirs/erreurs ; plancher = prix vu ≥2× sinon P10 ; `MIN_OBS=3` ; marque « ambigüe » si spread>3). `autoEcart()` est appelé **uniquement dans la branche `else` (hors catalogue)** de `runControle` → tout écart vs plancher est classé **`moyenne` (« à vérifier »), JAMAIS `haute`** (une hausse légitime ressemble à une erreur). Alertes proactives : `scheduleVeille()` (débouncé, hooké dans `save()`), cloche `#bellBtn`, carte `renderAlertCard()`, inbox `openAlertInbox()`. État « vu » LOCAL (`localStorage 'lav_veille_seen'`) ; exceptions « ignore » dans `state.veilleIgnore` (synchronisé).
 
-## Assistant IA intégré (« demander des actions depuis l'intérieur »)
+## Datasets embarqués + boutons d'intégration
 
-Bouton flottant en bas à droite → panneau de chat. L'utilisateur écrit en français ; le modèle (`claude-sonnet-4-6`) renvoie **strictement** un JSON `{"reply":"...","actions":[...]}` que `aiApply()` exécute sur `state`. Actions : `creer_dossier`, `creer_facture`, `ajouter_reference`, `ajouter_ligne`, `ajouter_regle`, `lancer_controle`, `generer_reclamations`, `naviguer`. Le prompt système et la liste d'actions sont dans `index.html` (constante `AI_SYSTEM`). À chaque tour, un instantané de l'état (`aiSnapshot()`) est envoyé pour que l'Assistant réponde aussi aux questions.
+Trois jeux de données réels sont **embarqués comme constantes** + chargés via un bouton (remplacement propre, synchronisé) :
+- `AXDIS_AUDIT` + `loadAxdisAudit()` — audit de réclamation des avoirs AXDIS : **69 418,83 € HT** (18 réf + 21 lignes). Bouton dans **Contrôle prix**.
+- `LED_DATASET` + `loadLedFactures()` — détail factures LED : **302 factures / 600 191,99 € HT**. Remplace l'activité LED (purge zone LED + préfixes `f_led_`/`d_led_`, ITE/AGRI/AMPLEUR intacts). Bouton dans **Données**.
+- `PAYABLES_DATASET` + `loadARegler()` — échéancier « à régler » : **262 factures, à devoir 2 537 506,03 € / reste sec 2 214 721,38 €**. Remplit `state.aRegler`. Bouton dans **Données**.
 
-**Trois modes d'appel** (fonction `aiCfg()` / réglages ⚙️ du panneau) :
-1. **Préversion claude.ai** — appel sans clé à `api.anthropic.com` (le bac à sable injecte l'auth). Marche dans l'aperçu d'artefact, **pas** en prod.
-2. **Clé Anthropic locale** — l'utilisateur colle sa clé (header `anthropic-dangerous-direct-browser-access`). Stockée dans son navigateur, jamais dans le code.
-3. **Proxy** (recommandé en prod) — l'URL d'un Cloudflare Worker (`proxy/`) qui garde la clé côté serveur.
+⚠️ **Construction des datasets** : les sources sont des **Google Sheets multi-onglets**. **TOUJOURS parser le xlsx via openpyxl en ciblant l'onglet voulu**, JAMAIS la lecture Markdown globale du connecteur Drive (elle concatène TOUS les onglets, y compris les « Détail-fournisseur » qui dupliquent → totaux gonflés — bug réel survenu sur le LED). Scripts de build dans `../data/` (hors repo) : `build_state.py`, `led_dataset.js`, `payables_dataset.js`, etc.
 
-Si tu modifies les actions, garde le contrat JSON et le prompt `AI_SYSTEM` synchronisés avec `aiApply()`.
+## Firebase, migration & auto-rechargement
 
-## Lancer en local
+- **Config** : `FIREBASE_CONFIG` (projet `crm-gestion-compta-lav`). L'apiKey web n'est PAS secrète (la sécurité vient des règles Firestore + Auth). Mode **hybride** : si `apiKey==='REMPLACER'` → login local souple (sert à tester en local, cf. `crm-artisans-verts-LOCAL.html`).
+- **Migration données** : `const DATA_VERSION`. Au snapshot, si `doc._dataVersion !== DATA_VERSION`, l'app remplace le cloud par `EMBEDDED_STATE` (si présent) — une fois. Les champs additifs (`veilleIgnore`, `aRegler`) sont migrés en douceur dans `load`/`fbApplyRemote`/`fbPushDoc`/`fbPushState`/`resetAll` **sans** bumper `DATA_VERSION`.
+- **Auto-rechargement** (`checkUpdate`) : compare l'**ETag** de `index.html` (fetch no-store) à celui mesuré au chargement ; si une nouvelle version est déployée → bannière + `location.reload()` automatique **dès que l'écran est au repos** (pas de modale/saisie en cours). Plus besoin de Ctrl+Maj+R. + meta `no-cache`.
 
-Pas de build. Soit ouvrir `index.html` dans le navigateur, soit servir le dossier :
-```bash
-python3 -m http.server 8080
-# puis http://localhost:8080
-```
+## Assistant IA + scan de facture (proxy)
 
-## Vérifier avant commit
+Bouton ✨ : l'utilisateur écrit en français, le modèle (`claude-sonnet-4-6`) renvoie un JSON `{reply, actions}` exécuté par `aiApply()` (actions : `creer_dossier`, `creer_facture`, `ajouter_reference`, `ajouter_ligne`, `ajouter_regle`, `lancer_controle`, `generer_reclamations`, `naviguer`). **Scan** : `aiExtractFacture(file)` lit en-tête **+ détail des lignes** (l'IA recopie ce qui est imprimé ; si un total n'est pas lisible, `totalHT=''` et le moteur recalcule). Les lignes scannées (`importExtractedLignes`, `source:'ia'`) entrent dans la veille. **Appel** via **proxy Cloudflare Worker** (`proxy/`, garde la clé API côté serveur ; URL collée dans ⚙️ de l'assistant, stockée par navigateur). Bouton **💡 Suggérer une amélioration** (menu ⋮) : génère un prompt prêt à coller dans Claude Code.
 
-La syntaxe JS du fichier unique doit toujours passer :
-```bash
-node -e "const h=require('fs').readFileSync('index.html','utf8');const m=h.match(/<script>([\s\S]*)<\/script>/);require('vm').compileFunction(m[1]);console.log('JS OK')"
-```
+## Tâches courantes
 
-## Déploiement GitHub Pages
-
-```bash
-git init && git add -A && git commit -m "CRM Les Artisans Verts"
-git branch -M main
-git remote add origin git@github.com:770lab/crm-artisans-verts.git
-git push -u origin main
-```
-Puis Settings → Pages → Source = branche `main` (racine). URL : `https://770lab.github.io/crm-artisans-verts/`.
-Le workflow `.github/workflows/pages.yml` automatise ce déploiement à chaque push si tu préfères l'activer (Settings → Pages → Source = GitHub Actions).
-
-## Proxy pour l'Assistant (optionnel, prod)
-
-Voir `proxy/README.md`. En résumé : `cd proxy`, `wrangler secret put ANTHROPIC_API_KEY`, `wrangler deploy`, puis coller l'URL du Worker dans les réglages ⚙️ de l'Assistant. Pense à restreindre l'origine CORS au domaine du site dans `worker.js`.
-
-## Tâches courantes (exemples de demandes)
-
-- « Ajoute un onglet d'export PDF des dossiers » → rester en vanilla (lib PDF via CDN seulement, pas de bundler).
-- « Importe ce CSV de factures de vente » → utiliser l'import CSV existant (mapping de colonnes, formats FR).
-- « Branche le CRM sur Firebase pour multi-postes » → **proposer un plan d'abord** : `state` (ce schéma JSON) devient directement le schéma Firestore, la migration est mécanique. Ne pas casser le mode localStorage hors-ligne.
-- « Améliore la détection des prix » → modifier `runControle`, garder la logique **déterministe** et **sans double comptage**, revalider avec les CSV d'`exemples/`.
+- Modifier l'affichage → CSS dans le `<style>` de `index.html` (déjà une grosse passe UX : `.kpi`, tables aérées, responsive). Garder la cohérence visuelle.
+- Améliorer la détection des prix → modifier `runControle`/`buildReferentielAuto`, garder **déterministe** + **zéro double comptage**, revalider en `node` (AXDIS = 69 418,83 €).
+- Ajouter/corriger un dataset → reparser le xlsx (openpyxl, onglet ciblé), régénérer la constante, remplacer dans `index.html`, revalider le total en `node`.
+- Toujours : valider la syntaxe JS, déployer (`git push`), confirmer le run GitHub Actions.
 
 ## Garde-fous
 
-- Single-file vanilla par défaut ; pas de dépendances surprises.
-- Les calculs d'argent restent déterministes et auditables.
-- Ne jamais committer de clé API (voir `.gitignore`). La clé de l'Assistant vit côté navigateur ou côté proxy, pas dans le repo.
+- Single-file vanilla ; pas de dépendances surprises ; calculs d'argent déterministes & auditables.
+- Ne jamais committer de clé API (`.gitignore`). La clé de l'assistant vit côté proxy/navigateur.
+- Avant de remplacer un dataset/des données : vérifier le **total** contre la source (xlsx), pas l'OCR d'un PDF.
