@@ -2,6 +2,9 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Les Artisans Verts — Gestion comptable</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -526,6 +529,20 @@ thead th.no-sort:hover{background:var(--surface-2)}
 .eng-tag{font-size:11px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
 .eng-tag.sec{background:var(--gold-tint);color:var(--gold)}
 .eng-tag.eff{background:var(--surface-2);color:var(--ink-soft)}
+.ar-cascade{background:#fff;border:1px solid var(--line);border-radius:14px;padding:6px 20px;margin-bottom:18px;max-width:580px}
+.cas-row{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14.5px}
+.cas-row:last-child{border-bottom:none}
+.cas-row small{color:var(--ink-faint);font-size:12px;font-weight:400;margin-left:6px}
+.cas-row b{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.cas-row.minus,.cas-row.minus b{color:var(--ink-soft)}
+.cas-row.total{border-top:2px solid var(--line-strong);border-bottom:2px solid var(--line-strong);font-weight:700}
+.cas-row.total b{font-size:16px}
+.cas-row.grand span{font-weight:700}
+.cas-row.grand b{color:var(--neg);font-size:19px;font-weight:800}
+@media(max-width:480px){.ar-cascade{padding:4px 14px}.cas-row{font-size:13px}.cas-row.grand b{font-size:16px}}
+.update-banner{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:300;display:flex;align-items:center;gap:14px;background:var(--brand);color:#fff;padding:11px 16px 11px 18px;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.28);font-size:14px;font-weight:500;animation:emptyFade .3s ease}
+.update-banner button{background:#fff;color:var(--brand);border:none;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
+.update-banner button:hover{opacity:.92}
 </style>
 
 <header>
@@ -1953,11 +1970,12 @@ function renderARegler(){
   const s=arSummary(rows);
   let html='<div class="section-head"><h2>À régler — fournisseurs</h2><div class="meta">'+s.n+' factures · source « Factures à régler »</div></div>';
   html+='<div class="hint-row" style="background:var(--gold-tint);border-color:#E6D3A8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Échéancier fournisseurs : montants <b>nets des acomptes déjà versés</b>. Les <b>LCR / traites / factor</b> déjà engagés sont isolés ; le « reste à régler » est ce qui n\'est pas encore programmé.</div></div>';
-  html+='<div class="kpis">'
-    +'<div class="kpi"><div class="label">À devoir (TTC)</div><div class="val neg">'+fmtK(s.ad)+'</div><div class="hint">net des acomptes</div></div>'
-    +'<div class="kpi"><div class="label">Reste à régler « sec »</div><div class="val">'+fmtK(s.sec)+'</div><div class="hint">non encore engagé</div></div>'
-    +'<div class="kpi"><div class="label">Engagé LCR/traite/factor</div><div class="val">'+fmtK(s.eng)+'</div><div class="hint">déjà programmé</div></div>'
-    +'<div class="kpi"><div class="label">Acomptes versés</div><div class="val">'+fmtK(s.ac)+'</div><div class="hint">brut TTC '+fmtK(s.brut)+'</div></div>'
+  html+='<div class="ar-cascade">'
+    +'<div class="cas-row"><span>Montant TTC brut <small>'+s.n+' factures</small></span><b>'+fmt(s.brut)+'</b></div>'
+    +'<div class="cas-row minus"><span>− Acomptes déjà versés</span><b>− '+fmt(s.ac)+'</b></div>'
+    +'<div class="cas-row total"><span>= À devoir TTC</span><b>'+fmt(s.ad)+'</b></div>'
+    +'<div class="cas-row minus"><span>− Engagé via LCR / traites / factor</span><b>− '+fmt(s.eng)+'</b></div>'
+    +'<div class="cas-row grand"><span>= Reste à régler « sec » <small>à décaisser, non engagé</small></span><b>'+fmt(s.sec)+'</b></div>'
     +'</div>';
   const zs=Object.entries(s.byZ).sort((a,b)=>b[1]-a[1]); const mz=Math.max(1,...zs.map(x=>Math.abs(x[1])));
   const fs=Object.entries(s.byF).sort((a,b)=>b[1]-a[1]).slice(0,10); const mf=Math.max(1,...fs.map(x=>Math.abs(x[1])));
@@ -3065,6 +3083,41 @@ function fbPushState(){
     else { if(g) g.style.display='flex'; if(pwd) pwd.focus(); }
   }
 })();
+
+/* ============================================================
+   MISE À JOUR AUTOMATIQUE — détecte une nouvelle version déployée (ETag du serveur)
+   et recharge tout seul dès que c'est sans risque (plus besoin de Ctrl+Maj+R).
+   ============================================================ */
+let _appTag=null, _updateReady=false;
+async function checkUpdate(){
+  if(_updateReady) return;
+  try{
+    const r=await fetch('index.html?_v='+Date.now(), {cache:'no-store', method:'HEAD'});
+    if(!r.ok) return;
+    const tag=r.headers.get('etag')||r.headers.get('last-modified');
+    if(!tag) return;
+    if(_appTag===null){ _appTag=tag; return; }   // 1re mesure = version courante
+    if(tag!==_appTag){ _updateReady=true; onUpdateAvailable(); }
+  }catch(e){}
+}
+function _safeToReload(){
+  const ov=document.getElementById('overlay'); if(ov && ov.classList.contains('open')) return false;   // modale ouverte
+  const ae=document.activeElement; if(ae && /^(input|textarea|select)$/i.test(ae.tagName)) return false; // saisie en cours
+  const ai=document.getElementById('ai-input'); if(ai && (ai.value||'').trim()) return false;            // message assistant en cours
+  if(typeof fbSaving!=='undefined' && fbSaving) return false;
+  return true;
+}
+function onUpdateAvailable(){
+  let b=document.getElementById('updateBanner');
+  if(!b){ b=document.createElement('div'); b.id='updateBanner'; b.className='update-banner';
+    b.innerHTML='<span>🔄 Une nouvelle version est disponible.</span> <button onclick="location.reload()">Recharger</button>';
+    document.body.appendChild(b); }
+  const tryReload=()=>{ if(_safeToReload()) location.reload(); else setTimeout(tryReload,4000); };
+  setTimeout(tryReload, 7000);   // laisse 7 s, puis recharge dès que l'écran est au repos
+}
+setTimeout(checkUpdate, 4000);
+setInterval(checkUpdate, 120000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkUpdate(); });
 
 /* ---------- Raccourcis clavier ---------- */
 document.addEventListener('keydown',function(e){
