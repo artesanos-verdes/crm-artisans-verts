@@ -43,6 +43,7 @@ Site déployé : ouvre ⚙️ dans le panneau de l'assistant et colle l'URL du *
 
 ## Pour développer avec Claude Code
 
+👉 **[PARTAGE.md](PARTAGE.md)** — travailler à plusieurs / synchroniser Jonathan ↔ Benjamin.
 👉 **[HANDOFF.md](HANDOFF.md)** — prise en main (pour Benjamin).
 👉 **[CLAUDE.md](CLAUDE.md)** — brief technique complet (architecture, modèle de données, veille, datasets, Firebase, garde-fous).
 

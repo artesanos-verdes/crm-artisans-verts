@@ -12,9 +12,10 @@ Bienvenue ! Ce document te permet de **reprendre le développement du CRM** avec
 | **Claude Code** | App de bureau (Mac/Windows) ou extension VS Code — le plus simple. *(CLI : `npm i -g @anthropic-ai/claude-code` puis `claude`.)* |
 | **Le projet** | Ce dossier. Deux options ci-dessous. |
 
-### Récupérer le projet
-- **Le plus simple** : Jonathan te partage le **dossier** ; tu l'ouvres dans Claude Code et tu travailles en local (Jonathan déploie).
-- **Autonome** : Jonathan t'ajoute comme **collaborateur** du dépôt GitHub `artesanos-verdes/crm-artisans-verts` (Settings → Collaborators). Tu clones, tu modifies **et tu déploies** toi-même (un `git push` met en ligne automatiquement).
+### Récupérer le projet — et rester synchronisé
+👉 **Suis [PARTAGE.md](PARTAGE.md)** : Jonathan t'ajoute comme **collaborateur** du dépôt GitHub `artesanos-verdes/crm-artisans-verts`, tu le **clones** une fois, puis tu te synchronises d'un clic (`sync.command` pour recevoir, `publish.command` pour envoyer) — ou tu demandes à Claude Code « récupère la dernière version » / « publie mes changements ».
+
+Ainsi, **les mises à jour de Jonathan apparaissent chez toi**, et inversement. (La copie de fichiers envoyée par mail ne se synchronise pas — passe par le dépôt.)
 
 ---
 
