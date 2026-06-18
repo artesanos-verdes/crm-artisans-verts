@@ -522,6 +522,7 @@ thead th.no-sort:hover{background:var(--surface-2)}
 .al-tag.rec{background:var(--red-tint);color:var(--red)}
 .al-tag.ver{background:var(--gold-tint);color:var(--gold)}
 @media(max-width:600px){.al-row{flex-wrap:wrap}.al-amt{order:2}.al-act{order:3;width:100%}}
+.scan-lignes-note{align-items:center;gap:9px;background:var(--brand-tint);border:1px solid #CADBC9;color:var(--brand);border-radius:10px;padding:10px 14px;font-size:13px;margin:0 0 14px;line-height:1.4}
 </style>
 
 <header>
@@ -1082,6 +1083,7 @@ function toggleStatut(id){ const f=state.factures.find(x=>x.id===id); if(!f) ret
 
 /* ---------- Facture modal ---------- */
 function openFacture(id){
+  scanPendingLignes=[];   // pas de lignes scannées en attente d'une session précédente
   const f = id ? state.factures.find(x=>x.id===id) : null;
   const isEdit = !!f;
   const v = f || {type:'achat', date:todayISO(), tva:20, statut:'attente'};
@@ -1096,7 +1098,8 @@ function openFacture(id){
         <button class="x" onclick="closeModal()">✕</button>
       </div></div>
     <div class="modal-body">
-      <div class="scan-hint">📷 <b>Scanner une facture</b> : dépose une photo ou un PDF, l'IA pré-remplit les champs (tu valides). <span class="muted">Nécessite l'assistant connecté (⚙️).</span></div>
+      <div class="scan-hint">📷 <b>Scanner une facture</b> : dépose une photo ou un PDF, l'IA pré-remplit les champs <b>et lit le détail des lignes</b> (tu valides). <span class="muted">Nécessite l'assistant connecté (⚙️).</span></div>
+      <div id="scanLignesNote" class="scan-lignes-note" style="display:none"></div>
       <div class="form-grid">
         <div class="field"><label>Type</label>
           <select id="f_type">
@@ -1183,7 +1186,10 @@ function saveFacture(id){
   if(!rec.tiers && !rec.ref && !rec.ht && !rec.ttc){ toast('Renseignez au moins un tiers ou un montant.','err'); return; }
   if(id){ const i=state.factures.findIndex(x=>x.id===id); rec.id=id; state.factures[i]=rec; }
   else { rec.id=uid('f'); state.factures.unshift(rec); }
-  save(); closeModal(); renderAll(); toast(id?'Facture mise à jour':'Facture ajoutée','ok');
+  let addedL=0;
+  if(scanPendingLignes && scanPendingLignes.length){ addedL=importExtractedLignes(scanPendingLignes, rec.tiers, rec.ref); scanPendingLignes=[]; }
+  save(); closeModal(); renderAll();
+  toast(addedL?`${id?'Facture mise à jour':'Facture ajoutée'} + ${addedL} ligne${addedL>1?'s':''} sous surveillance tarifaire`:(id?'Facture mise à jour':'Facture ajoutée'),'ok');
 }
 function delFacture(id, fromModal){
   if(!confirm('Supprimer cette facture ?')) return;
@@ -1743,7 +1749,7 @@ function openGuide(){
 
       <h4 id="g3">3 · Tâches courantes (pas à pas)</h4>
       <div class="g-task"><b>➕ Ajouter une facture</b><span>Bouton vert <b>« Nouvelle facture »</b> (en haut) → choisis Achat ou Vente, le tiers, le montant HT, la TVA, le dossier, le statut (payé / à payer) → <b>Enregistrer</b>. Le TTC se calcule tout seul.</span></div>
-      <div class="g-task"><b>📷 Scanner une facture (photo / PDF)</b><span>Dans « Nouvelle facture », clique <b>« Scanner une facture »</b> → dépose une photo ou un PDF → l'IA <b>pré-remplit</b> les champs (tu vérifies puis Enregistres). Tu peux aussi déposer la facture directement dans l'assistant ✨ via <b>📎</b>.</span></div>
+      <div class="g-task"><b>📷 Scanner une facture (photo / PDF)</b><span>Dans « Nouvelle facture », clique <b>« Scanner une facture »</b> → dépose une photo ou un PDF → l'IA <b>pré-remplit</b> les champs <b>et lit le détail des lignes</b> (réf, quantité, prix). À l'enregistrement, ces lignes passent automatiquement sous <b>veille tarifaire</b>. Tu peux aussi déposer la facture dans l'assistant ✨ via <b>📎</b>.</span></div>
       <div class="g-task"><b>✅ Marquer une facture payée</b><span>Dans l'onglet Factures, clique sur la pastille de statut de la ligne (ou ouvre la facture) → bascule en « Payé ».</span></div>
       <div class="g-task"><b>📋 Réclamer les avoirs AXDIS</b><span>Onglet <b>Contrôle prix</b> → bouton <b>📋 Audit AXDIS</b> (un clic charge l'analyse, <b>69 418 € HT</b> à réclamer) → puis <b>« Générer les réclamations »</b> pour la lettre. C'est partagé avec les 3 comptes.</span></div>
       <div class="g-task"><b>📁 Créer un dossier / chantier</b><span>Onglet Dossiers → <b>« Nouveau dossier »</b> → nom, client, fiche, zone, statut. Rattache ensuite tes factures à ce dossier pour suivre sa marge.</span></div>
@@ -1787,7 +1793,7 @@ function openGuide(){
 
       <h4 id="g8">8 · Faire évoluer le CRM 💡</h4>
       <p>Une idée d'amélioration ? Menu <b>⋮</b> → <b>« 💡 Suggérer une amélioration »</b> : décris ce que tu veux, l'app génère un <b>prompt prêt à coller dans Claude Code</b> (tout le contexte technique est déjà dedans). <b>Copie-le</b> et envoie-le à Jonathan, ou colle-le dans Claude Code.</p>
-      <div class="g-tip">🔜 Bientôt : une <b>veille tarifaire permanente</b> — le CRM surveillera automatiquement toutes les factures et remontera directement toute erreur de tarification.</div>
+      <div class="g-tip">🔔 <b>Veille tarifaire permanente (active)</b> : le CRM surveille en continu toutes les lignes de facture et remonte les écarts via la <b>cloche 🔔</b> en haut et une <b>carte</b> sur le tableau de bord. <b>« À réclamer »</b> = écart vs tarif convenu ; <b>« À vérifier »</b> = prix supérieur au plus bas déjà payé (peut être une hausse légitime).</div>
 
       <p class="g-foot">Une question ? Contacte <b>Jonathan</b>. Bonne gestion ! 🌿</p>
     </div>
@@ -2482,14 +2488,38 @@ async function aiExtractFacture(file){
     : {type:'image',    source:{type:'base64', media_type:mime, data}};
   const sys=`Tu extrais les informations d'UNE facture (française) pour les saisir dans un CRM comptable.
 Réponds STRICTEMENT par un objet JSON, sans aucun texte autour, au format :
-{"type":"achat","tiers":"","ref":"","date":"AAAA-MM-JJ","ht":0,"tva":20,"ttc":0,"libelle":""}
-Règles : type="achat" si c'est une facture reçue d'un fournisseur, "vente" si c'est une facture émise à un client. tiers = nom du fournisseur (ou du client pour une vente). ref = numéro de facture. date = date de la facture (AAAA-MM-JJ). ht/ttc = montants en nombres (point décimal, sans symbole). tva = taux en % (ex 20, 10, 5.5, 0). libelle = courte description. Mets "" ou 0 si une valeur est absente.`;
-  const messages=[{role:'user', content:[ block, {type:'text', text:'Extrais les champs de cette facture en JSON.'} ]}];
-  const raw=await aiCall(messages, {system:sys, max_tokens:700});
+{"type":"achat","tiers":"","ref":"","date":"AAAA-MM-JJ","ht":0,"tva":20,"ttc":0,"libelle":"","lignes":[{"ref":"","designation":"","quantite":0,"puFacture":0,"remiseAppliquee":0,"totalHT":0}]}
+Règles : type="achat" si c'est une facture reçue d'un fournisseur, "vente" si c'est une facture émise à un client. tiers = nom du fournisseur (ou du client pour une vente). ref = numéro de facture. date = date de la facture (AAAA-MM-JJ). ht/ttc = montants en nombres (point décimal, sans symbole). tva = taux en % (ex 20, 10, 5.5, 0). libelle = courte description. Mets "" ou 0 si une valeur est absente.
+lignes = le détail ligne par ligne du tableau produits/prestations (une entrée par ligne). Pour chacune : ref = code article si présent, designation = libellé, quantite = quantité, puFacture = prix unitaire HT, remiseAppliquee = remise en % si indiquée (sinon 0), totalHT = montant HT de la ligne.
+IMPORTANT (anti-erreur) : RECOPIE uniquement les valeurs IMPRIMÉES sur la facture, ne calcule JAMAIS un montant toi-même. Si une valeur n'est pas lisible ou absente, mets "" (le CRM la recalculera). Si la facture n'a aucun détail ligne par ligne, mets "lignes":[].`;
+  const messages=[{role:'user', content:[ block, {type:'text', text:'Extrais les champs et le détail des lignes de cette facture en JSON.'} ]}];
+  const raw=await aiCall(messages, {system:sys, max_tokens:2000});
   let parsed=null;
   try{ parsed=JSON.parse(raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```$/,'')); }catch(e){}
   if(!parsed || typeof parsed!=='object') throw new Error('Réponse illisible : '+raw.slice(0,120));
   return parsed;
+}
+let scanPendingLignes=[];   // lignes lues par l'IA au scan, importées à l'enregistrement de la facture
+// règle d'or : on RECOPIE ce que l'IA a lu ; si le total n'est pas lisible, on laisse vide → le moteur (lineTotal) recalcule
+function importExtractedLignes(lignes, fournisseur, facture){
+  if(!Array.isArray(lignes)) return 0;
+  let n=0;
+  lignes.forEach(li=>{
+    if(!li || typeof li!=='object') return;
+    const qte=parseNum(li.quantite), pu=parseNum(li.puFacture);
+    const desig=String(li.designation||li.libelle||'').trim();
+    const refL=String(li.ref||'').trim();
+    if(!desig && !refL && !(qte>0) && !(pu>0)) return;   // ligne vide → ignorée
+    const totalLu=(li.totalHT!=null && String(li.totalHT).trim()!=='') ? parseNum(li.totalHT) : '';
+    state.lignes.unshift({
+      id:uid('lg'), fournisseur:String(fournisseur||'').trim(), facture:String(facture||'').trim(),
+      date:'', ref:refL, libelle:desig,
+      quantite: qte>0?qte:'', puFacture: pu>0?pu:'', remiseAppliquee: parseNum(li.remiseAppliquee)||0,
+      totalHT: totalLu, source:'ia', verifie:false
+    });
+    n++;
+  });
+  return n;
 }
 function scanFacture(){
   const i=document.createElement('input'); i.type='file'; i.accept='image/*,application/pdf';
@@ -2509,7 +2539,10 @@ function scanFacture(){
       if(g('f_tva') && d.tva!=null && d.tva!=='') g('f_tva').value=String(parseNum(d.tva));
       if(g('f_ttc') && d.ttc!=null && d.ttc!=='' && parseNum(d.ttc)>0){ g('f_ttc').value=String(d.ttc).replace('.',','); }
       else if(typeof calcFromHT==='function'){ calcFromHT(); }
-      toast('Facture lue ✓ — vérifie les champs puis Enregistre','ok');
+      scanPendingLignes = Array.isArray(d.lignes) ? d.lignes.filter(x=>x&&typeof x==='object') : [];
+      const note=document.getElementById('scanLignesNote');
+      if(note){ if(scanPendingLignes.length){ note.style.display='flex'; note.innerHTML=`📋 <span><b>${scanPendingLignes.length} ligne${scanPendingLignes.length>1?'s':''}</b> détectée${scanPendingLignes.length>1?'s':''} — ajoutée${scanPendingLignes.length>1?'s':''} au <b>contrôle des prix</b> (veille tarifaire) à l'enregistrement.</span>`; } else { note.style.display='none'; note.innerHTML=''; } }
+      toast(scanPendingLignes.length?`Facture + ${scanPendingLignes.length} ligne(s) lues ✓ — vérifie puis Enregistre`:'Facture lue ✓ — vérifie les champs puis Enregistre','ok');
     }catch(err){ toast('Lecture impossible : '+((err&&err.message)||err),'err'); }
     finally{ const b=document.getElementById('scanBtn'); if(b){ b.disabled=false; b.innerHTML=b.dataset.html||'📷 Scanner'; } }
   };
