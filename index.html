@@ -721,6 +721,7 @@ state.lignes    = state.lignes    || [];   // lignes de facture à contrôler
 state.regles    = state.regles    || defaultRegles(); // mots-clés de lignes facturées à tort
 state.veilleIgnore = state.veilleIgnore || {};   // exceptions de veille tarifaire (prix validés « normaux »), synchronisé
 state.aRegler = state.aRegler || [];   // échéancier fournisseurs « à régler » (net acomptes, LCR/traites isolés), synchronisé
+state.refDataVersion = state.refDataVersion || '';   // version des données de référence appliquée (forçage auto)
 
 /* ---------- helpers ---------- */
 const eur = new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2});
@@ -2176,6 +2177,39 @@ function loadAxdisAudit(){
   toast('Audit AXDIS chargé — 21 lignes, 69 418,83 € HT à réclamer','ok');
 }
 
+/* ============================================================
+   DONNÉES DE RÉFÉRENCE — version + forçage auto à la connexion
+   Recharge LED (302/600 191,99 €), À régler (262), AXDIS (69 418,83 €) à la bonne version,
+   sans intervention, UNE fois par version. Préserve les factures pointées « réglée ».
+   ============================================================ */
+const REF_DATA_VERSION = '2026-06-19-ref1';
+function applyReferenceData(){
+  // LED — purge toute trace LED + recharge le détail corrigé
+  const oldLedIds=new Set((state.dossiers||[]).filter(d=>d.zone==='LED'||String(d.id).startsWith('d_led_')).map(d=>d.id));
+  state.factures=(state.factures||[]).filter(f=>!String(f.id).startsWith('f_led_') && !oldLedIds.has(f.dossierId));
+  state.dossiers=(state.dossiers||[]).filter(d=>!(d.zone==='LED'||String(d.id).startsWith('d_led_')));
+  state.dossiers=state.dossiers.concat(LED_DATASET.dossiers.map(d=>({...d})));
+  state.factures=LED_DATASET.factures.map(f=>({...f})).concat(state.factures);
+  // AXDIS — purge + recharge
+  state.catalogue=(state.catalogue||[]).filter(c=>!String(c.id).startsWith('cat_axdis_')).concat(AXDIS_AUDIT.catalogue.map(c=>({...c})));
+  state.lignes=(state.lignes||[]).filter(l=>!String(l.id).startsWith('lg_axdis_')).concat(AXDIS_AUDIT.lignes.map(l=>({...l})));
+  // À régler — recharge en PRÉSERVANT les factures déjà pointées « réglée »
+  const payeKeys=new Set((state.aRegler||[]).filter(r=>r.paye).map(r=>r.id));
+  state.aRegler=PAYABLES_DATASET.rows.map((r,i)=>{ const o={...r,id:'ar_'+i}; if(payeKeys.has('ar_'+i)) o.paye=true; return o; });
+  state.refDataVersion=REF_DATA_VERSION;
+}
+let _refApplied=false;
+function applyReferenceDataIfStale(){
+  if(_refApplied || state.refDataVersion===REF_DATA_VERSION) return false;
+  _refApplied=true;
+  applyReferenceData();
+  save();
+  if(typeof renderAll==='function') renderAll();
+  if(typeof markAlertsSeen==='function') markAlertsSeen();
+  toast('✅ Données mises à jour automatiquement (LED, À régler, AXDIS)','ok');
+  return true;
+}
+
 function runControle(){
   const st=ctrlStamp(); if(_ctrlCache && _ctrlStamp===st) return _ctrlCache;
   const A=[]; const seen={};
@@ -3116,6 +3150,7 @@ function lgEnter(){
     }
   }
   if(typeof setSync==='function') setSync(fbEnabled()?'synced':null);
+  if(typeof checkUpdate==='function') setTimeout(checkUpdate, 1500);   // vérifie la dernière version du code à la connexion
 }
 
 /* ---------- Backend Firebase (actif seulement si FIREBASE_CONFIG est rempli) ---------- */
@@ -3140,6 +3175,7 @@ function fbApplyRemote(d){
   state.regles=(d.regles&&d.regles.length)?d.regles:defaultRegles();
   state.veilleIgnore=d.veilleIgnore||state.veilleIgnore||{};
   state.aRegler=d.aRegler||state.aRegler||[];
+  state.refDataVersion=d.refDataVersion||state.refDataVersion||'';
   try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
   fbApplying=false;
   renderAll();
@@ -3147,6 +3183,8 @@ function fbApplyRemote(d){
   // 1re synchro : on marque l'existant comme "vu" (pas de tempête de toasts) ; ensuite, on n'alerte que les nouveaux écarts d'un autre poste
   if(!_fbFirstSyncDone){ _fbFirstSyncDone=true; if(typeof markAlertsSeen==='function'){ markAlertsSeen(); if(typeof updateBell==='function') updateBell(); } }
   else if(typeof scheduleVeille==='function') scheduleVeille();
+  // FORÇAGE AUTO des données de référence à la bonne version (LED/À régler/AXDIS), une fois par version
+  if(typeof applyReferenceDataIfStale==='function') setTimeout(applyReferenceDataIfStale, 400);
 }
 // amorçage des données embarquées (EMBEDDED_STATE injecté en fin de fichier)
 function seedFromEmbedded(){
@@ -3161,7 +3199,7 @@ function seedFromEmbedded(){
 function fbPushDoc(extra){
   return fbDocRef.set(Object.assign({
     factures:state.factures, dossiers:state.dossiers, catalogue:state.catalogue||[],
-    lignes:state.lignes||[], regles:state.regles||[], veilleIgnore:state.veilleIgnore||{}, aRegler:state.aRegler||[],
+    lignes:state.lignes||[], regles:state.regles||[], veilleIgnore:state.veilleIgnore||{}, aRegler:state.aRegler||[], refDataVersion:state.refDataVersion||'',
     _dataVersion:DATA_VERSION, _updatedAt:Date.now()
   }, extra||{}));
 }
@@ -3206,7 +3244,7 @@ function fbPushState(){
   fbSaveTimer=setTimeout(()=>{
     fbDocRef.set({
       factures:state.factures, dossiers:state.dossiers,
-      catalogue:state.catalogue||[], lignes:state.lignes||[], regles:state.regles||[], veilleIgnore:state.veilleIgnore||{}, aRegler:state.aRegler||[],
+      catalogue:state.catalogue||[], lignes:state.lignes||[], regles:state.regles||[], veilleIgnore:state.veilleIgnore||{}, aRegler:state.aRegler||[], refDataVersion:state.refDataVersion||'',
       _dataVersion:DATA_VERSION, _updatedAt:Date.now(), _updatedBy:(lgCurrent()||{}).name||''
     }).then(()=>setSync('synced'))
       .catch(()=>toast('Sync cloud échouée — réessai au prochain enregistrement','err'));
@@ -3241,6 +3279,7 @@ function fbPushState(){
     // mode LOCAL
     if(lgCurrent()){ lgEnter(); }
     else { if(g) g.style.display='flex'; if(pwd) pwd.focus(); }
+    if(typeof applyReferenceDataIfStale==='function') setTimeout(applyReferenceDataIfStale, 600);
   }
 })();
 
