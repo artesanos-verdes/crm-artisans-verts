@@ -871,9 +871,9 @@ function renderDashboard(){
       <div class="kpi"><div class="label">Achats (HT)</div>
         <div class="val">${fmtK(g.charges)}</div>
         <div class="hint"><b>${state.factures.filter(f=>f.type!=='vente').length}</b> factures fournisseur</div></div>
-      <div class="kpi"><div class="label">Ventes (HT)</div>
-        <div class="val brand">${fmtK(g.produits)}</div>
-        <div class="hint"><b>${state.factures.filter(f=>f.type==='vente').length}</b> factures de vente</div></div>
+      <div class="kpi" style="opacity:.65"><div class="label">Ventes / CA</div>
+        <div class="val" style="font-size:17px;color:var(--ink-soft);font-weight:600">en cours d'intégration</div>
+        <div class="hint">documents CA des 4 activités à venir</div></div>
       ${(state.aRegler&&state.aRegler.length)?(()=>{const s=arSummary();return `<div class="kpi clickable" onclick="go('areregler')" style="cursor:pointer"><div class="label">À régler fournisseurs</div>
         <div class="val neg">${fmtK(s.reste)}</div>
         <div class="hint">dont <b>${fmtK(s.eng)}</b> engagé (LCR/traite)${s.regle>0?` · ${fmtK(s.regle)} réglé`:''}</div></div>`;})():`<div class="kpi"><div class="label">À décaisser (impayé)</div>
@@ -1074,7 +1074,7 @@ function renderFactures(){
         </tr></thead>
         <tbody>${factRowsHTML(arr,zm)}</tbody>
         <tfoot><tr>
-          <td colspan="5">Totaux affichés ${vHT?`· Ventes HT : <span class="num">${fmt(vHT)}</span>`:''}</td>
+          <td colspan="5">Totaux affichés</td>
           <td class="r num">${fmt(tHT)}</td><td></td>
           <td class="r num">${fmt(tTTC)}</td><td colspan="2"></td>
         </tr></tfoot>
@@ -1328,13 +1328,12 @@ function renderDossiers(){
         <td>${d.statut?`<span class="tag">${esc(d.statut)}</span>`:''}</td>
         <td class="r num">${s.count}</td>
         <td class="r num">${fmtK(s.charges)}</td>
-        <td class="r num">${s.produits?fmtK(s.produits):'<span style="color:var(--ink-faint)">—</span>'}</td>
         <td class="r"><button class="btn sm ghost" onclick="event.stopPropagation();openDossier('${d.id}')" title="Modifier">✎</button></td>
       </tr>`;}).join('');
     body+=`<div class="zsec">
       <div class="zsec-head zh-${esc(z)}">
         <div class="zsec-title">${m.ic} <b>${esc(m.lbl)}</b> <span class="zsec-count">${ds.length} dossier${ds.length>1?'s':''} · ${nf} factures</span></div>
-        <div class="zsec-sum">Achats <b>${fmtK(ch)}</b>${ca>0?` · Ventes <b>${fmtK(ca)}</b>`:''}</div>
+        <div class="zsec-sum">Achats <b>${fmtK(ch)}</b></div>
       </div>
       <div class="table-wrap"><div class="tscroll"><table class="doss-table">
         <thead><tr>
@@ -1342,7 +1341,6 @@ function renderDossiers(){
           <th>Statut</th>
           <th class="r sortable" onclick="setDossSort('count')">Factures${sar('count')}</th>
           <th class="r sortable" onclick="setDossSort('charges')">Achats HT${sar('charges')}</th>
-          <th class="r sortable" onclick="setDossSort('produits')">Ventes HT${sar('produits')}</th>
           <th></th>
         </tr></thead>
         <tbody>${rows}</tbody></table></div></div>
@@ -3164,6 +3162,7 @@ function lgEnter(){
   }
   if(typeof setSync==='function') setSync(fbEnabled()?'synced':null);
   if(typeof checkUpdate==='function') setTimeout(checkUpdate, 1500);   // vérifie la dernière version du code à la connexion
+  if(typeof go==='function') go('areregler');   // « À régler » = onglet central (le PDF au cœur de l'app)
 }
 
 /* ---------- Backend Firebase (actif seulement si FIREBASE_CONFIG est rempli) ---------- */
