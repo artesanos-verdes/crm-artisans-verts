@@ -2098,6 +2098,14 @@ function arEchDisplay(r){
   return '<b'+(urg?' style="color:var(--red)"':'')+'>'+dm+'</b>'+(lbl?' <small class="muted">'+lbl+'</small>':'');
 }
 function togglePayeARegler(id){ const r=(state.aRegler||[]).find(x=>x.id===id); if(!r) return; r.paye=!r.paye; save(); renderAll(); toast(r.paye?'Facture marquée réglée ✓':'Remise « à régler »','ok'); }
+function reopenAllARegler(){
+  const n=(state.aRegler||[]).filter(r=>r.paye).length;
+  if(!n) return;
+  if(!confirm('Rouvrir les '+n+' facture(s) marquée(s) « réglée » et les remettre dans « à régler » ?')) return;
+  (state.aRegler||[]).forEach(r=>{ if(r.paye) delete r.paye; });
+  save(); renderAll();
+  toast(n+' facture(s) rouverte(s) — remises en « à régler »','ok');
+}
 function loadARegler(){
   if(typeof closeMenu==='function') closeMenu();
   state.aRegler=PAYABLES_DATASET.rows.map((r,i)=>({...r,id:'ar_'+i}));
@@ -2116,7 +2124,7 @@ function renderARegler(){
     return;
   }
   const s=arSummary(rows);
-  let html='<div class="section-head"><h2>À régler — fournisseurs</h2><div class="no-print" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="meta">'+s.n+' factures'+(s.nPaye?' · '+s.nPaye+' réglée'+(s.nPaye>1?'s':''):'')+'</div><button class="btn sm" onclick="exportAReglerCSV()">⬇️ CSV</button><button class="btn sm" onclick="window.print()">🖨️ Imprimer / PDF</button></div></div>';
+  let html='<div class="section-head"><h2>À régler — fournisseurs</h2><div class="no-print" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="meta">'+s.n+' factures'+(s.nPaye?' · '+s.nPaye+' réglée'+(s.nPaye>1?'s':''):'')+'</div>'+(s.nPaye?'<button class="btn sm" style="border-color:var(--gold);color:var(--gold)" onclick="reopenAllARegler()">↩︎ Rouvrir tout ('+s.nPaye+')</button>':'')+'<button class="btn sm" onclick="exportAReglerCSV()">⬇️ CSV</button><button class="btn sm" onclick="window.print()">🖨️ Imprimer / PDF</button></div></div>';
   html+='<div class="hint-row no-print" style="background:var(--gold-tint);border-color:#E6D3A8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Échéancier fournisseurs : montants <b>nets des acomptes déjà versés</b>. Les <b>LCR / traites / factor</b> engagés <b>restent dus</b> (signalés à part) tant qu\'ils ne sont pas <b>officiellement réglés</b>. Une facture ne sort du « reste à régler » que lorsqu\'on la marque <b>réglée ✓</b>.</div></div>';
   // alerte échéances proches (LCR/traites engagés ≤ 7 j)
   const echAll=rows.filter(r=>!r.paye && r.e && r.ech).map(r=>({r,dt:arParseEch(r.ech)})).filter(x=>x.dt).sort((a,b)=>a.dt-b.dt);
