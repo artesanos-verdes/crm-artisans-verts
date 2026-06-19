@@ -1014,7 +1014,11 @@ function renderFactures(){
 
   el.innerHTML = `
     <div class="section-head"><h2>Factures</h2>
-      <div class="meta">${arr.length} ligne${arr.length>1?'s':''} affichée${arr.length>1?'s':''}${arr.length!==state.factures.length?` / ${state.factures.length}`:''}</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="meta">${arr.length} ligne${arr.length>1?'s':''} affichée${arr.length>1?'s':''}${arr.length!==state.factures.length?` / ${state.factures.length}`:''}</div>
+        <button class="btn sm no-print" onclick="exportFacturesCSV()">⬇️ CSV</button>
+        <button class="btn sm no-print" onclick="window.print()">🖨️ PDF</button>
+      </div></div>
 
     <div class="zfilter zfilter-fact">
       <span class="zfilter-lbl">Activité&nbsp;:</span>
@@ -1451,6 +1455,20 @@ function renderData(){
       </div>
     </div>
 
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><h3>📊 Exports pour votre comptable</h3></div>
+      <div class="panel-body">
+        <p style="color:var(--ink-soft);font-size:13px;margin:0 0 12px">Fichiers prêts pour votre cabinet d'expertise comptable (CSV, ouvrables dans Excel/Sheets).</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn" onclick="exportFacturesCSV()">🧾 Factures (CSV)</button>
+          <button class="btn" onclick="exportTvaCSV()">🧮 Récap TVA par mois (CSV)</button>
+          <button class="btn" onclick="exportDossiersCSV()">📁 Dossiers (CSV)</button>
+          <button class="btn" onclick="exportAReglerCSV()">📑 Échéancier à régler (CSV)</button>
+        </div>
+        <p style="color:var(--ink-faint);font-size:12px;margin:12px 0 0">📄 <b>PDF</b> : ouvre l'onglet voulu (Factures, À régler…) puis <b>🖨️ Imprimer / PDF</b> (ou <b>Cmd/Ctrl + P</b> → « Enregistrer en PDF »).</p>
+      </div>
+    </div>
+
     <div class="hint-row">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 16v-4m0-4h.01M12 22A10 10 0 1 0 12 2a10 10 0 0 0 0 20Z" stroke="currentColor" stroke-width="2"/></svg>
       <div>Vos données sont stockées dans ce navigateur. Pour une vraie sauvegarde (changement de poste, sécurité), exportez régulièrement le fichier <b>JSON</b> via le menu ⋯.</div>
@@ -1693,6 +1711,24 @@ function exportDossiersCSV(){
   });
   dl('﻿'+lines.join('\r\n'), `dossiers-artisans-verts-${todayISO()}.csv`,'text/csv;charset=utf-8');
   toast('Dossiers exportés','ok');
+}
+function exportTvaCSV(){
+  if(!state.factures.length){ toast('Aucune facture à exporter.','err'); return; }
+  const r2=n=>String(round2(n)).replace('.',',');
+  const M={};
+  state.factures.forEach(f=>{ const m=(f.date||'').slice(0,7)||'(sans date)';
+    M[m]=M[m]||{achHT:0,tvaD:0,venHT:0,tvaC:0};
+    const tva=round2((f.ttc||0)-(f.ht||0));
+    if(f.type==='vente'){ M[m].venHT+=f.ht||0; M[m].tvaC+=tva; } else { M[m].achHT+=f.ht||0; M[m].tvaD+=tva; }
+  });
+  const lines=[['Mois','Achats HT','TVA deductible','Ventes HT','TVA collectee','Solde TVA (a reverser si +)'].join(';')];
+  let tA=0,tD=0,tV=0,tC=0;
+  Object.keys(M).sort().forEach(m=>{ const x=M[m]; tA+=x.achHT;tD+=x.tvaD;tV+=x.venHT;tC+=x.tvaC;
+    lines.push([m, r2(x.achHT), r2(x.tvaD), r2(x.venHT), r2(x.tvaC), r2(x.tvaC-x.tvaD)].join(';')); });
+  lines.push('');
+  lines.push(['TOTAL', r2(tA), r2(tD), r2(tV), r2(tC), r2(tC-tD)].join(';'));
+  dl('﻿'+lines.join('\r\n'), `recap-tva-artisans-verts-${todayISO()}.csv`,'text/csv;charset=utf-8');
+  toast('Récap TVA exporté','ok');
 }
 function downloadTemplate(){
   closeMenu();
@@ -2049,6 +2085,15 @@ function arParseEch(s){ const m=/(\d{1,2})\/(\d{1,2})/.exec(s||''); if(!m) retur
   if(Math.round((dt-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000) < -190) dt=new Date(now.getFullYear()+1,mo-1,d);
   return dt; }
 function arDaysUntil(dt){ if(!dt) return null; const now=new Date(); return Math.round((dt-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000); }
+function arEchDisplay(r){
+  if(!r.e) return '<span class="muted">—</span>';
+  const dt=arParseEch(r.ech);
+  if(!dt) return r.ech?('<b>'+esc(r.ech)+'</b>'):'<span class="muted">à programmer</span>';
+  const dd=arDaysUntil(dt), urg=dd!=null&&dd<=7;
+  const dm=('0'+dt.getDate()).slice(-2)+'/'+('0'+(dt.getMonth()+1)).slice(-2)+'/'+dt.getFullYear();
+  const lbl=dd==null?'':(dd<0?'dépassée':(dd===0?'aujourd\'hui':'dans '+dd+' j'));
+  return '<b'+(urg?' style="color:var(--red)"':'')+'>'+dm+'</b>'+(lbl?' <small class="muted">'+lbl+'</small>':'');
+}
 function togglePayeARegler(id){ const r=(state.aRegler||[]).find(x=>x.id===id); if(!r) return; r.paye=!r.paye; save(); renderAll(); toast(r.paye?'Facture marquée réglée ✓':'Remise « à régler »','ok'); }
 function loadARegler(){
   if(typeof closeMenu==='function') closeMenu();
@@ -2111,8 +2156,8 @@ function renderARegler(){
     +'<label class="ar-check"><input type="checkbox" '+(arFilter.hidePaye?'checked':'')+' onchange="arFilter.hidePaye=this.checked;renderARegler()"> Masquer les réglées</label>'
     +((arFilter.four||arFilter.z||arFilter.eng||arFilter.hidePaye)?'<button class="btn sm ghost filter-clear" onclick="arClear()">✕ Filtres</button>':'')
     +'</div>';
-  html+='<div class="table-wrap"><div class="tscroll"><table><thead><tr><th class="no-sort">Fournisseur</th><th class="no-sort">Facture</th><th class="no-sort">Client / objet</th><th class="no-sort">Activité</th><th class="no-sort r">Acompte</th><th class="no-sort r">À devoir TTC</th><th class="no-sort">Engagement</th><th class="no-sort no-print">Action</th></tr></thead><tbody>'
-    +fr.map(r=>'<tr'+(r.paye?' class="ar-paye"':'')+'><td class="cell-strong"><span class="tiers-dot" style="background:'+tierColor(r.t)+'"></span>'+esc(r.t)+'</td><td class="cell-ref mono">'+esc(r.n||'—')+'</td><td>'+esc(r.cl||'—')+'</td><td>'+esc(r.z||'—')+'</td><td class="r num" style="color:var(--ink-soft)">'+(r.ac?fmt(r.ac):'—')+'</td><td class="r num cell-strong" style="color:'+(r.paye?'var(--ink-faint)':(r.ad<0?'var(--brand)':'var(--neg)'))+'">'+fmt(r.ad)+'</td><td>'+arEngTag(r.e)+(r.ech?' <span class="muted" style="font-size:11px">'+esc(r.ech)+'</span>':'')+'</td><td class="no-print"><button class="btn sm '+(r.paye?'ghost':'')+'" onclick="togglePayeARegler(\''+r.id+'\')">'+(r.paye?'↩︎ Rouvrir':'✓ Régler')+'</button></td></tr>').join('')
+  html+='<div class="table-wrap"><div class="tscroll"><table><thead><tr><th class="no-sort">Fournisseur</th><th class="no-sort">Facture</th><th class="no-sort">Client / objet</th><th class="no-sort">Activité</th><th class="no-sort r">Acompte</th><th class="no-sort r">À devoir TTC</th><th class="no-sort">Engagement</th><th class="no-sort">Échéance prévue</th><th class="no-sort no-print">Action</th></tr></thead><tbody>'
+    +fr.map(r=>'<tr'+(r.paye?' class="ar-paye"':'')+'><td class="cell-strong"><span class="tiers-dot" style="background:'+tierColor(r.t)+'"></span>'+esc(r.t)+'</td><td class="cell-ref mono">'+esc(r.n||'—')+'</td><td>'+esc(r.cl||'—')+'</td><td>'+esc(r.z||'—')+'</td><td class="r num" style="color:var(--ink-soft)">'+(r.ac?fmt(r.ac):'—')+'</td><td class="r num cell-strong" style="color:'+(r.paye?'var(--ink-faint)':(r.ad<0?'var(--brand)':'var(--neg)'))+'">'+fmt(r.ad)+'</td><td>'+arEngTag(r.e)+'</td><td style="white-space:nowrap;font-size:13px">'+arEchDisplay(r)+'</td><td class="no-print"><button class="btn sm '+(r.paye?'ghost':'')+'" onclick="togglePayeARegler(\''+r.id+'\')">'+(r.paye?'↩︎ Rouvrir':'✓ Régler')+'</button></td></tr>').join('')
     +'</tbody></table></div></div>';
   el.innerHTML=html;
 }
