@@ -539,6 +539,8 @@ thead th.no-sort:hover{background:var(--surface-2)}
 .cas-row.total b{font-size:16px}
 .cas-row.grand span{font-weight:700}
 .cas-row.grand b{color:var(--neg);font-size:19px;font-weight:800}
+.cas-info{padding:10px 0 4px;font-size:12.5px;color:var(--ink-soft);line-height:1.5}
+.cas-info b{font-family:'IBM Plex Mono',ui-monospace,monospace;color:var(--ink)}
 @media(max-width:480px){.ar-cascade{padding:4px 14px}.cas-row{font-size:13px}.cas-row.grand b{font-size:16px}}
 .update-banner{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:300;display:flex;align-items:center;gap:14px;background:var(--brand);color:#fff;padding:11px 16px 11px 18px;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.28);font-size:14px;font-weight:500;animation:emptyFade .3s ease}
 .update-banner button{background:#fff;color:var(--brand);border:none;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}
@@ -872,8 +874,8 @@ function renderDashboard(){
         <div class="val brand">${fmtK(g.produits)}</div>
         <div class="hint"><b>${state.factures.filter(f=>f.type==='vente').length}</b> factures de vente</div></div>
       ${(state.aRegler&&state.aRegler.length)?(()=>{const s=arSummary();return `<div class="kpi clickable" onclick="go('areregler')" style="cursor:pointer"><div class="label">À régler fournisseurs</div>
-        <div class="val neg">${fmtK(s.ad)}</div>
-        <div class="hint">dont <b>${fmtK(s.sec)}</b> non engagé · ${fmtK(s.eng)} LCR/traite</div></div>`;})():`<div class="kpi"><div class="label">À décaisser (impayé)</div>
+        <div class="val neg">${fmtK(s.reste)}</div>
+        <div class="hint">dont <b>${fmtK(s.eng)}</b> engagé (LCR/traite)${s.regle>0?` · ${fmtK(s.regle)} réglé`:''}</div></div>`;})():`<div class="kpi"><div class="label">À décaisser (impayé)</div>
         <div class="val">${fmtK(g.impayeMontant)}</div>
         <div class="hint"><b>${g.impayeCount}</b> facture${g.impayeCount>1?'s':''} à payer</div></div>`}
       <div class="kpi"><div class="label">Échéances ≤ 30 j</div>
@@ -1673,9 +1675,10 @@ function exportAReglerCSV(){
   lines.push('Montant TTC brut;;;;;;'+String(s.brut).replace('.',','));
   lines.push('Acomptes verses;;;;;;-'+String(s.ac).replace('.',','));
   lines.push('A devoir TTC;;;;;;'+String(s.ad).replace('.',','));
-  lines.push('Engage LCR/traites/factor;;;;;;-'+String(s.eng).replace('.',','));
-  if(s.regle>0) lines.push('Deja regle (pointe);;;;;;-'+String(s.regle).replace('.',','));
-  lines.push('Reste a regler sec;;;;;;'+String(s.sec).replace('.',','));
+  if(s.regle>0) lines.push('Deja regle officiellement (pointe);;;;;;-'+String(s.regle).replace('.',','));
+  lines.push('RESTE A REGLER (engages inclus);;;;;;'+String(s.reste).replace('.',','));
+  lines.push('dont engage LCR/traites/factor (info, programme);;;;;;'+String(s.eng).replace('.',','));
+  lines.push('dont non encore engage (info);;;;;;'+String(s.nonEng).replace('.',','));
   dl('﻿'+lines.join('\r\n'), `a-regler-artisans-verts-${todayISO()}.csv`,'text/csv;charset=utf-8');
   toast('Échéancier exporté','ok');
 }
@@ -2035,7 +2038,8 @@ function arSummary(rows){
     if(r.paye){ if(r.ad>0) regle+=r.ad; nPaye++; }
     else { if(r.e&&r.ad>0)eng+=r.ad;
       byZ[r.z||'—']=(byZ[r.z||'—']||0)+(r.ad||0); byF[r.t||'—']=(byF[r.t||'—']||0)+(r.ad||0); } });
-  return {brut:round2(brut),ac:round2(ac),ad:round2(ad),eng:round2(eng),regle:round2(regle),sec:round2(ad-eng-regle),n:rows.length,nPaye,byZ,byF};
+  // reste à régler = TOUT ce qui n'est pas OFFICIELLEMENT réglé (les LCR/traites engagés y restent tant qu'ils ne sont pas payés)
+  return {brut:round2(brut),ac:round2(ac),ad:round2(ad),eng:round2(eng),regle:round2(regle),reste:round2(ad-regle),nonEng:round2(ad-eng-regle),n:rows.length,nPaye,byZ,byF};
 }
 function arEngTag(e){ if(!e) return '<span class="eng-tag sec">à régler</span>';
   const m={LCR:'LCR',traite:'Traite','échéance':'Traite',factor:'Factor'}; return '<span class="eng-tag eff">'+(m[e]||e)+'</span>'; }
@@ -2065,7 +2069,7 @@ function renderARegler(){
   }
   const s=arSummary(rows);
   let html='<div class="section-head"><h2>À régler — fournisseurs</h2><div class="no-print" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="meta">'+s.n+' factures'+(s.nPaye?' · '+s.nPaye+' réglée'+(s.nPaye>1?'s':''):'')+'</div><button class="btn sm" onclick="exportAReglerCSV()">⬇️ CSV</button><button class="btn sm" onclick="window.print()">🖨️ Imprimer / PDF</button></div></div>';
-  html+='<div class="hint-row no-print" style="background:var(--gold-tint);border-color:#E6D3A8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Échéancier fournisseurs : montants <b>nets des acomptes déjà versés</b>. Les <b>LCR / traites / factor</b> déjà engagés sont isolés ; le « reste à régler » est ce qui n\'est pas encore programmé.</div></div>';
+  html+='<div class="hint-row no-print" style="background:var(--gold-tint);border-color:#E6D3A8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Échéancier fournisseurs : montants <b>nets des acomptes déjà versés</b>. Les <b>LCR / traites / factor</b> engagés <b>restent dus</b> (signalés à part) tant qu\'ils ne sont pas <b>officiellement réglés</b>. Une facture ne sort du « reste à régler » que lorsqu\'on la marque <b>réglée ✓</b>.</div></div>';
   // alerte échéances proches (LCR/traites engagés ≤ 7 j)
   const echAll=rows.filter(r=>!r.paye && r.e && r.ech).map(r=>({r,dt:arParseEch(r.ech)})).filter(x=>x.dt).sort((a,b)=>a.dt-b.dt);
   const soon=echAll.filter(x=>{ const d=arDaysUntil(x.dt); return d!=null && d>=-60 && d<=7; });
@@ -2075,9 +2079,9 @@ function renderARegler(){
     +'<div class="cas-row"><span>Montant TTC brut <small>'+s.n+' factures</small></span><b>'+fmt(s.brut)+'</b></div>'
     +'<div class="cas-row minus"><span>− Acomptes déjà versés</span><b>− '+fmt(s.ac)+'</b></div>'
     +'<div class="cas-row total"><span>= À devoir TTC</span><b>'+fmt(s.ad)+'</b></div>'
-    +'<div class="cas-row minus"><span>− Engagé via LCR / traites / factor</span><b>− '+fmt(s.eng)+'</b></div>'
     +(s.regle>0?'<div class="cas-row minus"><span>− Déjà réglé (pointé ici)</span><b>− '+fmt(s.regle)+'</b></div>':'')
-    +'<div class="cas-row grand"><span>= Reste à régler « sec » <small>à décaisser, non engagé</small></span><b>'+fmt(s.sec)+'</b></div>'
+    +'<div class="cas-row grand"><span>= Reste à régler <small>tout ce qui n\'est pas encore réglé</small></span><b>'+fmt(s.reste)+'</b></div>'
+    +'<div class="cas-info">dont <b>'+fmt(s.eng)+'</b> déjà engagés en LCR / traites / factor (programmés, échéances ci-dessous) · <b>'+fmt(s.nonEng)+'</b> non encore engagés</div>'
     +'</div>';
   const zs=Object.entries(s.byZ).sort((a,b)=>b[1]-a[1]); const mz=Math.max(1,...zs.map(x=>Math.abs(x[1])));
   const fs=Object.entries(s.byF).sort((a,b)=>b[1]-a[1]).slice(0,10); const mf=Math.max(1,...fs.map(x=>Math.abs(x[1])));
